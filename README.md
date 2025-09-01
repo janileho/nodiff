@@ -1,36 +1,108 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Laak AI – Matematiikka-apin
 
-## Getting Started
+Matematiikan opiskeluapin lääkiksen pääsykokeisiin valmistautumiseen.
 
-First, run the development server:
+## 🚀 Features
 
+- **AI-powered math tutoring** - Single AI agent for all interactions
+- **Rich math editor** - LaTeX support with inline formula editing
+- **Real-time chat** - ChatGPT-style interface for asking questions
+- **Calculator integration** - AI can perform mathematical calculations
+- **Multiple difficulty levels** - Perusteet, +, ++, +++
+- **Subscription-based** - Stripe integration with 3 tiers
+
+## 🏗️ Architecture
+
+### Single AI Agent System
+- **One API endpoint**: `/api/math/coach` handles all AI interactions
+- **Two tools**: Calculator and Editor insertion
+- **Simple workflow**: User question → AI response → Optional editor insertion
+
+### Core Components
+- `MathChat` - Chat interface with LaTeX rendering
+- `RichMathEditor` - Word-like editor with inline LaTeX formulas
+- `SolveWorkspace` - Dual-pane layout (chat + editor)
+
+## 🛠️ Tech Stack
+
+- **Frontend**: Next.js 15, React, TypeScript, Tailwind CSS
+- **Backend**: Next.js API routes
+- **AI**: OpenAI GPT-4o-mini with function calling
+- **Database**: Firebase Firestore
+- **Auth**: Google Firebase Auth
+- **Payments**: Stripe
+- **LaTeX**: KaTeX rendering
+
+## 🚀 Getting Started
+
+1. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+2. **Set up environment variables**
+   ```env
+   OPENAI_API_KEY=your_openai_key
+   FIREBASE_PROJECT_ID=your_project_id
+   STRIPE_SECRET_KEY=your_stripe_key
+   STRIPE_WEBHOOK_SECRET=your_webhook_secret
+   ```
+
+3. **Run development server**
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+   ```
+
+## 📁 Project Structure
+
+```
+laakaii/
+├── app/                    # Next.js app router
+│   ├── api/               # API routes
+│   │   ├── auth/          # Authentication
+│   │   ├── math/          # Math tutoring APIs
+│   │   └── stripe/        # Payment handling
+│   └── app/               # Protected app pages
+├── components/            # React components
+│   ├── MathChat.tsx       # Chat interface
+│   ├── RichMathEditor.tsx # Math editor
+│   └── SolveWorkspace.tsx # Main workspace
+├── lib/                   # Utility functions
+│   ├── auth.ts           # Authentication helpers
+│   ├── stripe.ts         # Stripe configuration
+│   └── firebase/         # Firebase setup
+└── types/                # TypeScript definitions
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🎯 How It Works
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **User selects difficulty level** and gets a math problem
+2. **AI automatically inserts the problem** into the editor
+3. **User can ask questions** in the chat interface
+4. **AI responds with explanations** and can insert formulas into the editor
+5. **Calculator tool** ensures accurate mathematical calculations
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 🔧 API Endpoints
 
-## Learn More
+- `POST /api/math/coach` - Main AI tutoring endpoint
+- `POST /api/math/generate` - Generate new math problems
+- `POST /api/auth/session` - Handle authentication
+- `POST /api/stripe/checkout` - Create payment sessions
 
-To learn more about Next.js, take a look at the following resources:
+## 🎨 UI/UX
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Minimalist design** - OpenAI-style interface
+- **Responsive layout** - Works on desktop and tablet
+- **Intuitive editing** - Click formulas to edit, press Enter to commit
+- **Real-time LaTeX** - Formulas render instantly as you type
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🔒 Security
 
-## Deploy on Vercel
+- **Session-based auth** - Secure cookie handling
+- **Protected routes** - Middleware guards app pages
+- **Stripe webhooks** - Secure payment processing
+- **Input validation** - Safe mathematical expression evaluation
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🚀 Deployment
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Ready for deployment on Vercel, Netlify, or any Next.js-compatible platform.
