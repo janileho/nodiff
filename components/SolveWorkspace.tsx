@@ -53,7 +53,7 @@ export default function SolveWorkspace({ taskId }: Props) {
 	}, []);
 	
 	return (
-		<div className="resize-container flex h-full w-full p-4 gap-4">
+		<div className="resize-container flex h-full w-full p-3 md:p-4 gap-2 md:gap-4">
 			{/* Left side: Chat */}
 			<div 
 				className="flex flex-col min-h-0 bg-white/30 backdrop-blur-sm border border-white/40 rounded-xl shadow-lg"
@@ -72,13 +72,13 @@ export default function SolveWorkspace({ taskId }: Props) {
 				onMouseDown={handleMouseDown}
 			/>
 			
-			{/* Right side: Editor + Instructions + Navigation */}
+			{/* Right side: Editor + Instructions */}
 			<div 
 				className="flex flex-col min-h-0"
 				style={{ width: `${100 - leftWidth}%` }}
 			>
 				{/* Math Editor */}
-				<div className="flex-1 min-h-0 bg-white/30 backdrop-blur-sm border border-white/40 rounded-xl shadow-lg mb-4">
+				<div className="flex-1 min-h-0 bg-white/30 backdrop-blur-sm border border-white/40 rounded-xl shadow-lg mb-3 md:mb-4">
 					<RichMathEditor 
 						ref={editorRef} 
 						initialText="" 
@@ -87,9 +87,9 @@ export default function SolveWorkspace({ taskId }: Props) {
 				</div>
 				
 				{/* Editor Instructions */}
-				<div className="bg-white/30 backdrop-blur-sm border border-white/40 rounded-xl shadow-lg p-4">
-					<h3 className="text-sm font-medium text-gray-900 mb-2">Editorin käyttö:</h3>
-					<div className="text-xs text-gray-600 space-y-1">
+				<div className="bg-white/30 backdrop-blur-sm border border-white/40 rounded-xl shadow-lg p-3 md:p-4">
+					<h3 className="text-xs md:text-sm font-medium text-gray-900 mb-2">Editorin käyttö:</h3>
+					<div className="text-[11px] md:text-xs text-gray-600 space-y-1">
 						<p>• Lisää kaava: Ctrl+E (Mac: Cmd+E)</p>
 						<p>• Kirjoita matematiikkaa suoraan editoriin</p>
 						<p>• Pyydä apua chatista — AI lukee ratkaisusi ja ohjaa eteenpäin</p>

@@ -544,7 +544,7 @@ Jos ratkaisu on väärin, älä anna oikeaa vastausta, vaan kerro missä virhe o
 										{/* Message content */}
 										<div className="flex-1 min-w-0 pt-1">
 											<div className="text-sm leading-relaxed text-gray-900">
-												<div className="whitespace-pre-wrap">
+												<div className="whitespace-pre-wrap text-gray-900">
 													{renderMessageContent(msg.content)}
 												</div>
 											</div>

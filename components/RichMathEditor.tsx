@@ -92,6 +92,14 @@ const RichMathEditor = forwardRef<RichMathEditorHandle, Props>(function RichMath
 	const editorRef = useRef<HTMLDivElement>(null);
 	const [currentEditingId, setCurrentEditingId] = useState<string | null>(null);
 	const [showPlaceholder, setShowPlaceholder] = useState<boolean>(true);
+	const [showToolbar, setShowToolbar] = useState<boolean>(false);
+
+	useEffect(() => {
+		// Default: show toolbar on md+ screens, collapse on small
+		if (typeof window !== 'undefined') {
+			setShowToolbar(window.innerWidth >= 768);
+		}
+	}, []);
 
 	function updatePlaceholderVisibility() {
 		const el = editorRef.current;
@@ -681,11 +689,18 @@ const RichMathEditor = forwardRef<RichMathEditorHandle, Props>(function RichMath
 	return (
 		<div className="flex flex-col h-full overflow-hidden">
 			{/* Header */}
-			<div className="flex items-center justify-between px-6 py-3 border-b border-gray-200 bg-gray-50">
+			<div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50">
 				<div className="text-sm font-medium text-gray-700">Matematiikan editori</div>
-				<div className="flex items-center gap-3 text-xs">
+				<div className="flex items-center gap-2 text-xs">
+					<button
+						onMouseDown={(e) => e.preventDefault()}
+						onClick={() => setShowToolbar(v => !v)}
+						className="px-2.5 py-1 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
+					>
+						Kaavat
+					</button>
 					<button 
-						className="px-3 py-1.5 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
+						className="px-2.5 py-1 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
 						onMouseDown={(e) => e.preventDefault()}
 						onClick={() => {
 							if (!insertIntoActiveFormula("") ) {
@@ -696,97 +711,99 @@ const RichMathEditor = forwardRef<RichMathEditorHandle, Props>(function RichMath
 					>
 						+ Kaava
 					</button>
-					<span className="text-gray-500">Ctrl+E</span>
+					<span className="text-gray-500 hidden sm:inline">Ctrl+E</span>
 				</div>
 			</div>
-			
-			{/* LaTeX Toolbar */}
-			<div className="px-6 py-3 border-b border-gray-200 bg-gray-50">
-				<div className="flex flex-wrap gap-4">
-					{/* Greek Letters */}
-					<div className="flex items-center gap-2">
-						<span className="text-xs text-gray-500 mr-2">Kreikka:</span>
-						{['\\pi', '\\theta', '\\alpha', '\\beta', '\\gamma', '\\delta', '\\epsilon', '\\phi', '\\lambda', '\\mu', '\\sigma', '\\omega'].map(symbol => (
-							<button
-								key={symbol}
-								onMouseDown={(e) => e.preventDefault()}
-								onClick={() => { if (!insertIntoActiveFormula(symbol)) { insertFormula(symbol); } }}
-								className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center justify-center min-w-[28px]"
-								title={symbol}
-							>
-								<TeX math={symbol} />
-							</button>
-						))}
-					</div>
-					
-					{/* Mathematical Symbols */}
-					<div className="flex items-center gap-2">
-						<span className="text-xs text-gray-500 mr-2">Symbolit:</span>
-						{[
-							{ label: '\\infty', insert: '\\infty' },
-							{ label: '\\pm', insert: '\\pm' },
-							{ label: '\\times', insert: '\\times' },
-							{ label: '\\div', insert: '\\div' },
-							{ label: '\\sqrt{x}', insert: '\\sqrt{}' },
-							{ label: '\\sum', insert: '\\sum' },
-							{ label: '\\int', insert: '\\int' },
-							{ label: '\\frac{a}{b}', insert: '\\frac{}{}' },
-							{ label: 'x^{2}', insert: '^{}' },
-							{ label: 'x_{1}', insert: '_{}' },
-							{ label: '90^{\\circ}', insert: '^{\\circ}' }
-						].map(({ label, insert }) => (
-							<button
-								key={label}
-								onMouseDown={(e) => e.preventDefault()}
-								onClick={() => { if (!insertIntoActiveFormula(insert)) { insertFormula(insert); } }}
-								className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center justify-center min-w-[28px]"
-								title={insert}
-							>
-								<TeX math={label} />
-							</button>
-						))}
-					</div>
-					
-					{/* Functions */}
-					<div className="flex items-center gap-2">
-						<span className="text-xs text-gray-500 mr-2">Funktiot:</span>
-						{[
-							{ label: '\\sin x', insert: '\\sin()' },
-							{ label: '\\cos x', insert: '\\cos()' },
-							{ label: '\\tan x', insert: '\\tan()' },
-							{ label: '\\log x', insert: '\\log()' },
-							{ label: '\\ln x', insert: '\\ln()' },
-							{ label: '\\exp x', insert: '\\exp()' }
-						].map(({ label, insert }) => (
-							<button
-								key={label}
-								onMouseDown={(e) => e.preventDefault()}
-								onClick={() => { if (!insertIntoActiveFormula(insert)) { insertFormula(insert); } }}
-								className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center justify-center min-w-[28px]"
-								title={insert}
-							>
-								<TeX math={label} />
-							</button>
-						))}
-					</div>
-					
-					{/* Sets */}
-					<div className="flex items-center gap-2">
-						<span className="text-xs text-gray-500 mr-2">Joukot:</span>
-						{['\\mathbb{R}', '\\mathbb{N}', '\\mathbb{Z}', '\\mathbb{Q}', '\\mathbb{C}'].map(symbol => (
-							<button
-								key={symbol}
-								onMouseDown={(e) => e.preventDefault()}
-								onClick={() => { if (!insertIntoActiveFormula(symbol)) { insertFormula(symbol); } }}
-								className="px-2 py-1 text-xs bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center justify-center min-w-[28px]"
-								title={symbol}
-							>
-								<TeX math={symbol} />
-							</button>
-						))}
+ 
+			{/* LaTeX Toolbar (collapsible) */}
+			{showToolbar && (
+				<div className="px-4 py-2 border-b border-gray-200 bg-gray-50">
+					<div className="flex flex-nowrap gap-2 overflow-x-auto no-scrollbar items-center">
+						{/* Greek Letters */}
+						<div className="flex items-center gap-1 flex-shrink-0">
+							<span className="text-xs text-gray-500 mr-2">Kreikka:</span>
+							{['\\pi', '\\theta', '\\alpha', '\\beta', '\\gamma', '\\delta', '\\epsilon', '\\phi', '\\lambda', '\\mu', '\\sigma', '\\omega'].map(symbol => (
+								<button
+									key={symbol}
+									onMouseDown={(e) => e.preventDefault()}
+									className="px-2 py-1 text-[11px] bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center justify-center min-w-[26px] text-gray-900"
+									title={symbol}
+									onClick={() => { if (!insertIntoActiveFormula(symbol)) { insertFormula(symbol); } }}
+								>
+									<TeX math={symbol} />
+								</button>
+							))}
+						</div>
+						
+						{/* Mathematical Symbols */}
+						<div className="flex items-center gap-1 flex-shrink-0">
+							<span className="text-xs text-gray-500 mr-2">Symbolit:</span>
+							{[
+								{ label: '\\infty', insert: '\\infty' },
+								{ label: '\\pm', insert: '\\pm' },
+								{ label: '\\times', insert: '\\times' },
+								{ label: '\\div', insert: '\\div' },
+								{ label: '\\sqrt{x}', insert: '\\sqrt{}' },
+								{ label: '\\sum', insert: '\\sum' },
+								{ label: '\\int', insert: '\\int' },
+								{ label: '\\frac{a}{b}', insert: '\\frac{}{}' },
+								{ label: 'x^{2}', insert: '^{}' },
+								{ label: 'x_{1}', insert: '_{}' },
+								{ label: '90^{\\circ}', insert: '^{\\circ}' }
+							].map(({ label, insert }) => (
+								<button
+									key={label}
+									onMouseDown={(e) => e.preventDefault()}
+									className="px-2 py-1 text-[11px] bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center justify-center min-w-[26px] text-gray-900"
+									title={insert}
+									onClick={() => { if (!insertIntoActiveFormula(insert)) { insertFormula(insert); } }}
+								>
+									<TeX math={label} />
+								</button>
+							))}
+						</div>
+						
+						{/* Functions */}
+						<div className="flex items-center gap-1 flex-shrink-0">
+							<span className="text-xs text-gray-500 mr-2">Funktiot:</span>
+							{[
+								{ label: '\\sin x', insert: '\\sin()' },
+								{ label: '\\cos x', insert: '\\cos()' },
+								{ label: '\\tan x', insert: '\\tan()' },
+								{ label: '\\log x', insert: '\\log()' },
+								{ label: '\\ln x', insert: '\\ln()' },
+								{ label: '\\exp x', insert: '\\exp()' }
+							].map(({ label, insert }) => (
+								<button
+									key={label}
+									onMouseDown={(e) => e.preventDefault()}
+									className="px-2 py-1 text-[11px] bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center justify-center min-w-[26px] text-gray-900"
+									title={insert}
+									onClick={() => { if (!insertIntoActiveFormula(insert)) { insertFormula(insert); } }}
+								>
+									<TeX math={label} />
+								</button>
+							))}
+						</div>
+						
+						{/* Sets */}
+						<div className="flex items-center gap-1 flex-shrink-0">
+							<span className="text-xs text-gray-500 mr-2">Joukot:</span>
+							{['\\mathbb{R}', '\\mathbb{N}', '\\mathbb{Z}', '\\mathbb{Q}', '\\mathbb{C}'].map(symbol => (
+								<button
+									key={symbol}
+									onMouseDown={(e) => e.preventDefault()}
+									className="px-2 py-1 text-[11px] bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center justify-center min-w-[26px] text-gray-900"
+									title={symbol}
+									onClick={() => { if (!insertIntoActiveFormula(symbol)) { insertFormula(symbol); } }}
+								>
+									<TeX math={symbol} />
+								</button>
+							))}
+						</div>
 					</div>
 				</div>
-			</div>
+			)}
 			
 			{/* Editor */}
 			<div className="flex-1 overflow-hidden p-4">
