@@ -523,7 +523,7 @@ Jos ratkaisu on väärin, älä anna oikeaa vastausta, vaan kerro missä virhe o
 	};
 
 	return (
-		<div className="flex flex-col h-full overflow-hidden" style={{ overflow: 'hidden' }}>
+		<div className="flex flex-col h-full overflow-hidden text-xs md:text-sm" style={{ overflow: 'hidden' }}>
 			{/* Messages */}
 			<div className="flex-1 overflow-y-auto min-h-0 p-4" style={{
 				direction: 'rtl',

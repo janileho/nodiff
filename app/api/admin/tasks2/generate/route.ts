@@ -120,26 +120,20 @@ export async function POST(request: NextRequest) {
 
           const taskV2: TaskV2 = {
             task_id: nextId,
-            module: course.id,
-            section: subject?.id || course.subjects[0]?.id || 'general',
             question: task.question,
             solution_steps: task.solution_steps,
             final_answer: task.final_answer,
             difficulty: requestData.difficulty,
-            task_type: requestData.task_type,
-            category: "generated",
-            hints: task.hints || [],
-            common_mistakes: task.common_mistakes || [],
-            status: 'draft',
             course_id: course.id,
-            subject_id: subject?.id || '',
-            created_at: new Date(),
-            created_by: user.uid,
-            ai_generated: true
+            subject_id: subject?.id || ''
           };
 
           // Save to database using task_id as document ID
-          await adminDb.collection('tasks2').doc(taskV2.task_id).set(taskV2);
+          await adminDb.collection('tasks2').doc(taskV2.task_id).set({
+            ...taskV2,
+            created_at: new Date(),
+            updated_at: new Date()
+          });
           generatedTasks.push(taskV2);
         }
       } catch (error) {

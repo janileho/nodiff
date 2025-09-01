@@ -121,12 +121,6 @@ export class TaskImporter {
 		if (!task.module) errors.push('Missing module');
 		if (!task.difficulty) errors.push('Missing difficulty');
 
-		// Validate module exists
-		const validModules = ['MAA5'];
-		if (!validModules.includes(task.module)) {
-			errors.push(`Invalid module: ${task.module}`);
-		}
-
 		// Validate difficulty
 		const validDifficulties = ['perusteet', 'keskitaso', 'vaikea', 'pääsykoetyyli'];
 		if (!validDifficulties.includes(task.difficulty)) {
@@ -237,33 +231,4 @@ export interface ValidationResult {
 	error: string;
 }
 
-// Example usage functions
-export const exampleImportData: ExamTaskImport = {
-	exam_year: 2024,
-	exam_session: "kevät",
-	exam_type: "pääsykoe",
-	tasks: [
-		{
-			task_id: "exam_2024_1",
-			task_type: "equation_solving",
-			question: "Ratkaise yhtälö: 3x + 7 = 22",
-			solution_steps: [
-				"3x + 7 = 22",
-				"3x + 7 - 7 = 22 - 7",
-				"3x = 15",
-				"3x / 3 = 15 / 3",
-				"x = 5"
-			],
-			final_answer: "x = 5",
-			points: 2,
-			difficulty: "perusteet",
-			category: "algebra",
-			tags: ["yhtälöt", "lineaarinen"],
-			module: "MAA5",
-			section: "maa5_mathematical_modeling",
-			time_limit: 3,
-			hints: ["Muista lisätä sama luku molemmille puolille"],
-			common_mistakes: ["Väärä merkki", "Puuttuva jako"]
-		}
-	]
-}; 
+// Example import data removed to avoid local static data 

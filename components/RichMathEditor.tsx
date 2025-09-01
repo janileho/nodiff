@@ -2,6 +2,7 @@
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import TeX from "@matejmazur/react-katex";
+import { generateId, processLatexContent } from "./math/latexUtils";
 
 type FormulaState = {
 	id: string;
@@ -18,89 +19,18 @@ export type RichMathEditorHandle = {
 	appendText: (content: string) => void;
 	appendFormula: (latex: string) => void;
 	getContent: () => string;
+	focus: () => void;
+	insertIntoActiveFormula: (content: string) => boolean;
+	insertNewFormula: (latex?: string) => void;
 };
-
-function generateId() {
-	return Math.random().toString(36).slice(2, 9);
-}
-
-function sanitizeLatex(input: string): string {
-	const s = (input ?? "").trim();
-	if ((s.startsWith("$$") && s.endsWith("$$")) || (s.startsWith("$ ") && s.endsWith(" $"))) {
-		return s.replace(/^\${2}/, "").replace(/\${2}$/, "").trim();
-	}
-	if (s.startsWith("$") && s.endsWith("$")) {
-		return s.slice(1, -1).trim();
-	}
-	return s;
-}
-
-function convertAsteriskToCdot(input: string): string {
-	// Convert * to \cdot for multiplication, but avoid converting in LaTeX commands
-	return input.replace(/(?<!\\)\*/g, "\\cdot");
-}
-
-function expandFractionShorthand(input: string): string {
-	let out = (input ?? "");
-	let prev = "";
-	let guard = 0;
-	
-	// Handle nested fractions: (expr)/(expr), (expr)/token, token/(expr), token/token
-	const rePP = /\(\s*([^()]+?)\s*\)\s*\/\s*\(\s*([^()]+?)\s*\)/g;
-	const rePT = /\(\s*([^()]+?)\s*\)\s*\/\s*([A-Za-z0-9]+)/g;
-	const reTP = /([A-Za-z0-9]+)\s*\/\s*\(\s*([^()]+?)\s*\)/g;
-	const reTT = /([A-Za-z0-9]+)\s*\/\s*([A-Za-z0-9]+)/g;
-	
-	while (out !== prev && guard++ < 10) {
-		prev = out;
-		out = out
-			.replace(rePP, "\\frac{$1}{$2}")
-			.replace(rePT, "\\frac{$1}{$2}")
-			.replace(reTP, "\\frac{$1}{$2}")
-			.replace(reTT, "\\frac{$1}{$2}");
-	}
-	
-	return out;
-}
-
-function expandExponentShorthand(input: string): string {
-	let out = (input ?? "");
-	
-	// Handle parentheses exponents: a^(b) -> a^{b}
-	out = out.replace(/([A-Za-z0-9\}\]])\s*\^\s*\(\s*([^()]+?)\s*\)/g, "$1^{ $2 }");
-	
-	// Handle parentheses base with exponent: (a)^b -> {a}^{b}
-	out = out.replace(/\(\s*([^()]+?)\s*\)\s*\^\s*([A-Za-z0-9\{\(]+)/g, "{ $1 }^{ $2 }");
-	
-	// Handle simple exponents: a^b -> a^{b}
-	out = out.replace(/([A-Za-z0-9])\s*\^\s*([A-Za-z0-9])/g, "$1^{ $2 }");
-	
-	// Handle chained exponents right-associatively: a^b^c -> a^{b^{c}}
-	let prev = "";
-	let guard = 0;
-	while (out !== prev && guard++ < 10) {
-		prev = out;
-		// Find patterns like ^{a}^{b} and convert to ^{a^{b}}
-		out = out.replace(/\^\s*\{([^{}]+)\}\s*\^\s*\{([^{}]+)\}/g, "^{ $1^{ $2 } }");
-	}
-	
-	return out;
-}
 
 const RichMathEditor = forwardRef<RichMathEditorHandle, Props>(function RichMathEditor({ initialText = "", onChange }, ref) {
 	const [formulas, setFormulas] = useState<FormulaState[]>([]);
 	const editorRef = useRef<HTMLDivElement>(null);
 	const [currentEditingId, setCurrentEditingId] = useState<string | null>(null);
 	const [showPlaceholder, setShowPlaceholder] = useState<boolean>(true);
-	const [showToolbar, setShowToolbar] = useState<boolean>(false);
-	const [toolbarMode, setToolbarMode] = useState<'partial' | 'full'>('partial');
 
-	useEffect(() => {
-		// Default: show toolbar on md+ screens, collapse on small
-		if (typeof window !== 'undefined') {
-			setShowToolbar(window.innerWidth >= 768);
-		}
-	}, []);
+
 
 	function updatePlaceholderVisibility() {
 		const el = editorRef.current;
@@ -159,7 +89,7 @@ const RichMathEditor = forwardRef<RichMathEditorHandle, Props>(function RichMath
 				
 				if (formula.content.trim()) {
 					// Use KaTeX directly to render the formula
-					const processedContent = expandExponentShorthand(expandFractionShorthand(convertAsteriskToCdot(sanitizeLatex(formula.content))));
+					const processedContent = processLatexContent(formula.content);
 					try {
 						// Import KaTeX dynamically
 						import('katex').then((katex) => {
@@ -213,7 +143,7 @@ const RichMathEditor = forwardRef<RichMathEditorHandle, Props>(function RichMath
 		
 		// Create preview container
 		const preview = document.createElement("div");
-		preview.className = "mt-1 p-1 border rounded bg-gray-50 min-h-[20px] text-sm";
+		preview.className = "mt-1 p-1 border rounded bg-gray-50 min-h-5 text-sm";
 		updatePreview(preview, latex);
 		
 		span.appendChild(input);
@@ -306,30 +236,10 @@ const RichMathEditor = forwardRef<RichMathEditorHandle, Props>(function RichMath
 				}, 50);
 			} else if ((e.key === "Backspace" || e.key === "Tab") && input.value === "") {
 				e.preventDefault();
-				// Remove the formula entirely and return to text mode
-				const span = editorRef.current?.querySelector(`[data-formula="${id}"]`) as HTMLElement;
-				if (span) {
-					// Create a text node to replace the formula
-					const textNode = document.createTextNode("");
-					span.parentNode?.replaceChild(textNode, span);
-					
-					// Set cursor position at the text node
-					const sel = window.getSelection();
-					if (sel) {
-						const range = document.createRange();
-						range.setStart(textNode, 0);
-						range.collapse(true);
-						sel.removeAllRanges();
-						sel.addRange(range);
-					}
-					
-					// Remove from formulas state
-					setFormulas(prev => prev.filter(f => f.id !== id));
-					setCurrentEditingId(prev => (prev === id ? null : prev)); // Clear current editing ID
-					
-					// Focus the editor
-					editorRef.current?.focus();
-				}
+				// Delegate removal to the common commit handler to avoid DOM race conditions
+				handleFormulaCommit(id, "");
+				// Focus the editor after removal
+				editorRef.current?.focus();
 			}
 		};
 		
@@ -399,7 +309,7 @@ const RichMathEditor = forwardRef<RichMathEditorHandle, Props>(function RichMath
 	function updatePreview(previewElement: HTMLElement, content: string) {
 		if (content.trim()) {
 			try {
-				const processedContent = expandExponentShorthand(expandFractionShorthand(convertAsteriskToCdot(sanitizeLatex(content))));
+				const processedContent = processLatexContent(content);
 				// Use KaTeX to render the preview
 				import('katex').then((katex) => {
 					const rendered = katex.default.renderToString(processedContent, {
@@ -420,6 +330,16 @@ const RichMathEditor = forwardRef<RichMathEditorHandle, Props>(function RichMath
 	}
 
 	useImperativeHandle(ref, () => ({
+		focus: () => {
+			const el = editorRef.current;
+			if (el) el.focus();
+		},
+		insertIntoActiveFormula: (content: string) => {
+			return insertIntoActiveFormula(content);
+		},
+		insertNewFormula: (latex?: string) => {
+			insertFormula(latex || "");
+		},
 		appendText: (content: string) => {
 			const el = editorRef.current;
 			if (!el) return;
@@ -464,7 +384,7 @@ const RichMathEditor = forwardRef<RichMathEditorHandle, Props>(function RichMath
 			span.className = "inline-block align-middle mx-0.5 cursor-pointer border border-transparent hover:border-gray-300 rounded px-1";
 			
 			// Render the LaTeX immediately
-			const processedContent = expandExponentShorthand(expandFractionShorthand(convertAsteriskToCdot(sanitizeLatex(latex))));
+			const processedContent = processLatexContent(latex);
 			import('katex').then((katex) => {
 				const rendered = katex.default.renderToString(processedContent, {
 					throwOnError: false,
@@ -549,7 +469,7 @@ const RichMathEditor = forwardRef<RichMathEditorHandle, Props>(function RichMath
 				
 				// Create preview container
 				const preview = document.createElement("div");
-				preview.className = "mt-2 p-2 border border-gray-200 rounded-lg bg-white min-h-[24px] text-sm shadow-sm";
+				preview.className = "mt-2 p-2 border border-gray-200 rounded-lg bg-white min-h-6 text-sm shadow-sm";
 				updatePreview(preview, formula.content);
 				
 				span.appendChild(input);
@@ -620,30 +540,10 @@ const RichMathEditor = forwardRef<RichMathEditorHandle, Props>(function RichMath
 						}, 50);
 					} else if ((e.key === "Backspace" || e.key === "Tab") && input.value === "") {
 						e.preventDefault();
-						// Remove the formula entirely and return to text mode
-						const span = editorRef.current?.querySelector(`[data-formula="${id}"]`) as HTMLElement;
-						if (span) {
-							// Create a text node to replace the formula
-							const textNode = document.createTextNode("");
-							span.parentNode?.replaceChild(textNode, span);
-							
-							// Set cursor position at the text node
-							const sel = window.getSelection();
-							if (sel) {
-								const range = document.createRange();
-								range.setStart(textNode, 0);
-								range.collapse(true);
-								sel.removeAllRanges();
-								sel.addRange(range);
-							}
-							
-							// Remove from formulas state
-							setFormulas(prev => prev.filter(f => f.id !== id));
-							setCurrentEditingId(prev => (prev === id ? null : prev)); // Clear current editing ID
-							
-							// Focus the editor
-							editorRef.current?.focus();
-						}
+						// Delegate removal to the common commit handler to avoid DOM race conditions
+						handleFormulaCommit(id, "");
+						// Focus the editor after removal
+						editorRef.current?.focus();
 					}
 				});
 				
@@ -689,141 +589,6 @@ const RichMathEditor = forwardRef<RichMathEditorHandle, Props>(function RichMath
 
 	return (
 		<div className="flex flex-col h-full overflow-hidden">
-			{/* Header */}
-			<div className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-gray-50">
-				<div className="text-sm font-medium text-gray-700">Matematiikan editori</div>
-				<div className="flex items-center gap-2 text-xs">
-					<button
-						onMouseDown={(e) => e.preventDefault()}
-						onClick={() => setShowToolbar(v => !v)}
-						className="px-2.5 py-1 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
-					>
-						Kaavat
-					</button>
-					<button 
-						className="px-2.5 py-1 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
-						onMouseDown={(e) => e.preventDefault()}
-						onClick={() => {
-							if (!insertIntoActiveFormula("") ) {
-								editorRef.current?.focus();
-								insertFormula();
-							}
-						}}
-					>
-						+ Kaava
-					</button>
-					<span className="text-gray-500 hidden sm:inline">Ctrl+E</span>
-				</div>
-			</div>
- 
-			{/* LaTeX Toolbar (collapsible) */}
-			{showToolbar && (
-				<div className="px-4 py-2 border-b border-gray-200 bg-gray-50">
-					<div className="mb-2 flex items-center gap-2 text-xs">
-						<button
-							onMouseDown={(e) => e.preventDefault()}
-							onClick={() => setToolbarMode('partial')}
-							className={`px-2 py-1 rounded border ${toolbarMode === 'partial' ? 'bg-white text-gray-900 border-gray-300' : 'bg-transparent text-gray-600 border-gray-200'}`}
-						>
-							1/3
-						</button>
-						<button
-							onMouseDown={(e) => e.preventDefault()}
-							onClick={() => setToolbarMode('full')}
-							className={`px-2 py-1 rounded border ${toolbarMode === 'full' ? 'bg:white text-gray-900 border-gray-300' : 'bg-transparent text-gray-600 border-gray-200'}`}
-						>
-							Full
-						</button>
-					</div>
-					<div className={`${toolbarMode === 'partial' ? 'max-h-16' : 'max-h-96'} overflow-hidden transition-all duration-200`}> 
-						<div className="flex flex-wrap gap-2 items-center">
-							{/* Greek Letters */}
-							<div className="flex items-center gap-1 flex-shrink-0">
-								<span className="text-xs text-gray-500 mr-2">Kreikka:</span>
-								{['\\pi', '\\theta', '\\alpha', '\\beta', '\\gamma', '\\delta', '\\epsilon', '\\phi', '\\lambda', '\\mu', '\\sigma', '\\omega'].map(symbol => (
-									<button
-										key={symbol}
-										onMouseDown={(e) => e.preventDefault()}
-										className="px-2 py-1 text-[11px] bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center justify-center min-w-[26px] text-gray-900"
-										title={symbol}
-										onClick={() => { if (!insertIntoActiveFormula(symbol)) { insertFormula(symbol); } }}
-									>
-										<TeX math={symbol} />
-									</button>
-								))}
-							</div>
-							
-							{/* Mathematical Symbols */}
-							<div className="flex items-center gap-1 flex-shrink-0">
-								<span className="text-xs text-gray-500 mr-2">Symbolit:</span>
-								{[
-									{ label: '\\infty', insert: '\\infty' },
-									{ label: '\\pm', insert: '\\pm' },
-									{ label: '\\times', insert: '\\times' },
-									{ label: '\\div', insert: '\\div' },
-									{ label: '\\sqrt{x}', insert: '\\sqrt{}' },
-									{ label: '\\sum', insert: '\\sum' },
-									{ label: '\\int', insert: '\\int' },
-									{ label: '\\frac{a}{b}', insert: '\\frac{}{}' },
-									{ label: 'x^{2}', insert: '^{}' },
-									{ label: 'x_{1}', insert: '_{}' },
-									{ label: '90^{\\circ}', insert: '^{\\circ}' }
-								].map(({ label, insert }) => (
-									<button
-										key={label}
-										onMouseDown={(e) => e.preventDefault()}
-										className="px-2 py-1 text-[11px] bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center justify-center min-w-[26px] text-gray-900"
-										title={insert}
-										onClick={() => { if (!insertIntoActiveFormula(insert)) { insertFormula(insert); } }}
-									>
-										<TeX math={label} />
-									</button>
-								))}
-							</div>
-							
-							{/* Functions */}
-							<div className="flex items-center gap-1 flex-shrink-0">
-								<span className="text-xs text-gray-500 mr-2">Funktiot:</span>
-								{[
-									{ label: '\\sin x', insert: '\\sin()' },
-									{ label: '\\cos x', insert: '\\cos()' },
-									{ label: '\\tan x', insert: '\\tan()' },
-									{ label: '\\log x', insert: '\\log()' },
-									{ label: '\\ln x', insert: '\\ln()' },
-									{ label: '\\exp x', insert: '\\exp()' }
-								].map(({ label, insert }) => (
-									<button
-										key={label}
-										onMouseDown={(e) => e.preventDefault()}
-										className="px-2 py-1 text-[11px] bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center justify-center min-w-[26px] text-gray-900"
-										title={insert}
-										onClick={() => { if (!insertIntoActiveFormula(insert)) { insertFormula(insert); } }}
-									>
-										<TeX math={label} />
-									</button>
-								))}
-							</div>
-							
-							{/* Sets */}
-							<div className="flex items-center gap-1 flex-shrink-0">
-								<span className="text-xs text-gray-500 mr-2">Joukot:</span>
-								{['\\mathbb{R}', '\\mathbb{N}', '\\mathbb{Z}', '\\mathbb{Q}', '\\mathbb{C}'].map(symbol => (
-									<button
-										key={symbol}
-										onMouseDown={(e) => e.preventDefault()}
-										className="px-2 py-1 text-[11px] bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center justify-center min-w-[26px] text-gray-900"
-										title={symbol}
-										onClick={() => { if (!insertIntoActiveFormula(symbol)) { insertFormula(symbol); } }}
-									>
-										<TeX math={symbol} />
-									</button>
-								))}
-							</div>
-						</div>
-					</div>
-				</div>
-			)}
-			
 			{/* Editor */}
 			<div className="flex-1 overflow-hidden p-4">
 				<div className="relative h-full">
@@ -835,7 +600,7 @@ const RichMathEditor = forwardRef<RichMathEditorHandle, Props>(function RichMath
 					)}
 					<div
 						ref={editorRef}
-						className="h-full p-6 outline-none whitespace-pre-wrap text-base leading-7 text-gray-900 bg-white rounded-xl border border-gray-200 shadow-sm focus:ring-1 focus:ring-[#10a37f] focus:border-[#10a37f] focus:bg-gradient-to-r focus:from-white focus:to-gray-50 transition-all duration-200 overflow-y-auto"
+						className="h-full p-6 outline-none whitespace-pre-wrap text-base leading-7 text-gray-900 bg-white/80 backdrop-blur-sm rounded-xl border border-white/40 shadow-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 overflow-y-auto"
 						contentEditable
 						onKeyDown={handleKeyDown}
 						onClick={(e) => { handleClick(e); updatePlaceholderVisibility(); }}

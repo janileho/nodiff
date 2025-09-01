@@ -1,30 +1,11 @@
 export interface TaskV2 {
-  // Core task data - same as original TaskData
-  task_id: string; // Primary identifier (e.g., eq_001, eq_002)
-  module: string;
-  section: string;
+  task_id: string;
   question: string;
   solution_steps: string[];
   final_answer: string;
   difficulty: "helppo" | "keskitaso" | "haastava";
-  task_type: "verbal" | "nonverbal";
-  category: string;
-  
-  // Optional fields - same as original TaskData
-  exam_year?: number;
-  exam_session?: string;
-  time_limit?: number;
-  hints?: string[];
-  common_mistakes?: string[];
-  status?: "draft" | "published" | "archived";
-  created_at?: Date;
-  updated_at?: Date;
-  
-  // Additional fields for Tasks V2
-  course_id: string; // Course reference (new)
-  subject_id: string; // Subject reference (new)
-  created_by: string; // User ID (new)
-  ai_generated: boolean; // AI flag (new)
+  course_id: string;
+  subject_id: string;
 }
 
 export interface TaskGenerationRequestV2 {
@@ -59,15 +40,9 @@ export function getTaskSolutionSteps(taskData: TaskV2): string[] {
 export function formatTaskDataForAI(taskData: TaskV2): string {
   return `
 TEHTÄVÄN TIEDOT:
-- Tyyppi: ${taskData.task_type}
 - ID: ${taskData.task_id}
 - Kysymys: ${taskData.question}
 - Vaikeustaso: ${taskData.difficulty}
-- Kategoria: ${taskData.category}
-- Moduuli: ${taskData.module}
-${taskData.exam_year ? `- Koevuosi: ${taskData.exam_year} ${taskData.exam_session}` : ''}
-${taskData.hints && taskData.hints.length > 0 ? `- Vihjeet: ${taskData.hints.join(', ')}` : ''}
-${taskData.common_mistakes && taskData.common_mistakes.length > 0 ? `- Yleiset virheet: ${taskData.common_mistakes.join(', ')}` : ''}
 
 RATKAISU:
 ${taskData.solution_steps.map((step, index) => `${index + 1}. ${step}`).join('\n')}
@@ -96,24 +71,15 @@ export function validateTaskV2(task: Partial<TaskV2>): { valid: boolean; errors:
     errors.push("Final answer is required");
   }
   
-  if (!task.module) {
-    errors.push("Module is required");
-  }
-  
-  if (!task.section) {
-    errors.push("Section is required");
-  }
-  
   if (!task.difficulty) {
     errors.push("Difficulty level is required");
   }
   
-  if (!task.task_type) {
-    errors.push("Task type is required");
+  if (!task.course_id) {
+    errors.push("Course is required");
   }
-  
-  if (!task.category) {
-    errors.push("Category is required");
+  if (!task.subject_id) {
+    errors.push("Subject is required");
   }
   
   return {

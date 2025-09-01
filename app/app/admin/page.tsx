@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { TaskImporter, exampleImportData } from "@/lib/task-import";
+import { TaskImporter } from "@/lib/task-import";
 import type { TaskData } from "@/lib/task-data";
 
 export default function AdminPage() {
@@ -10,17 +10,14 @@ export default function AdminPage() {
 	const [jsonInput, setJsonInput] = useState("");
 	const [csvInput, setCsvInput] = useState("");
 
-	const handleImportExample = async () => {
-		setIsImporting(true);
-		try {
-			const result = await TaskImporter.importFromJSON(exampleImportData);
-			setImportResult(result);
-		} catch (error) {
-			setImportResult({ success: false, error: error instanceof Error ? error.message : 'Unknown error' });
-		} finally {
-			setIsImporting(false);
-		}
-	};
+    const handleImportExample = async () => {
+        setIsImporting(true);
+        try {
+            setImportResult({ success: false, error: 'Example data removed' });
+        } finally {
+            setIsImporting(false);
+        }
+    };
 
 	const handleImportJSON = async () => {
 		if (!jsonInput.trim()) return;

@@ -57,26 +57,12 @@ export async function GET(request: NextRequest) {
       const data = doc.data();
       return {
         task_id: data.task_id,
-        module: data.module,
-        section: data.section,
         question: data.question,
         solution_steps: data.solution_steps,
         final_answer: data.final_answer,
         difficulty: data.difficulty,
-        task_type: data.task_type,
-        category: data.category,
-        exam_year: data.exam_year,
-        exam_session: data.exam_session,
-        time_limit: data.time_limit,
-        hints: data.hints || [],
-        common_mistakes: data.common_mistakes || [],
-        status: data.status,
         course_id: data.course_id,
-        subject_id: data.subject_id,
-        created_at: data.created_at?.toDate?.()?.toISOString() || data.created_at,
-        updated_at: data.updated_at?.toDate?.()?.toISOString() || data.updated_at,
-        created_by: data.created_by,
-        ai_generated: data.ai_generated
+        subject_id: data.subject_id
       };
     }) as TaskV2[];
 
@@ -87,9 +73,7 @@ export async function GET(request: NextRequest) {
     if (subjectId) {
       tasks = tasks.filter(task => task.subject_id === subjectId);
     }
-    if (status) {
-      tasks = tasks.filter(task => task.status === status);
-    }
+    // Status filter removed due to simplified schema
     if (difficulty) {
       tasks = tasks.filter(task => task.difficulty === difficulty);
     }
@@ -140,29 +124,20 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     const newTask: TaskV2 = {
       task_id: taskData.task_id || nextId,
-      module: taskData.module || '',
-      section: taskData.section || '',
       question: taskData.question || '',
       solution_steps: taskData.solution_steps || [],
       final_answer: taskData.final_answer || '',
       difficulty: taskData.difficulty || 'keskitaso',
-      task_type: taskData.task_type || 'verbal',
-      category: taskData.category || 'manual',
-      exam_year: taskData.exam_year,
-      exam_session: taskData.exam_session,
-      time_limit: taskData.time_limit,
-      hints: taskData.hints || [],
-      common_mistakes: taskData.common_mistakes || [],
-      status: taskData.status || 'draft',
       course_id: taskData.course_id || '',
-      subject_id: taskData.subject_id || '',
-      created_at: now,
-      created_by: user.uid,
-      ai_generated: taskData.ai_generated || false
+      subject_id: taskData.subject_id || ''
     };
 
     // Use task_id as the document ID
-    await adminDb.collection('tasks2').doc(newTask.task_id).set(newTask);
+    await adminDb.collection('tasks2').doc(newTask.task_id).set({
+      ...newTask,
+      created_at: now,
+      updated_at: now
+    });
 
     console.log(`Task2 ${newTask.task_id} created successfully`);
 

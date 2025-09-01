@@ -3,6 +3,7 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --ui-scale: 1; /* computed at runtime and optionally user-adjusted */
 }
 
 @theme inline {
@@ -23,6 +24,18 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+html {
+  /* Fluid root font-size within a tight range so rem-based sizing tracks viewport */
+  font-size: clamp(0.875rem, 1.2vw + 0.5rem, 1rem);
+}
+
+/* Scalable container helper */
+.ui-scale {
+  transform: scale(var(--ui-scale));
+  transform-origin: center;
+  width: calc(100% / var(--ui-scale));
 }
 
 /* Custom scrollbar styles */

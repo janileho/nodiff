@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
-import TopBar from "@/components/TopBar";
+import UserMenu from "@/components/UserMenu";
 
 const geistSans = Geist({
 	variable: "--font-geist-sans",
@@ -27,8 +27,11 @@ export default async function RootLayout({
 	return (
 		<html lang="en" className="h-full">
 			<body className={`${geistSans.variable} ${geistMono.variable} antialiased h-full flex flex-col`} suppressHydrationWarning>
-				<TopBar />
-				<main className="flex-1 min-h-0 pt-14">
+				{/* Minimal header with profile icon only */}
+				<div className="fixed top-2 right-3 z-50">
+					<UserMenu />
+				</div>
+				<main className="flex-1 min-h-0" id="app-root">
 					{children}
 				</main>
 			</body>

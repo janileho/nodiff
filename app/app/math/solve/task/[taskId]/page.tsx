@@ -2,7 +2,6 @@ import { getCurrentUserFromSession } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { adminDb } from "@/lib/firebase/admin";
 import SolveWorkspace from "@/components/SolveWorkspace";
-import TaskNavClient from "./TaskNavClient";
 import type { TaskData } from "@/lib/task-data";
 
 interface TaskPageProps {
@@ -73,10 +72,6 @@ export default async function TaskPage({ params }: TaskPageProps) {
 
     return (
       <div className="h-full bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 overflow-hidden flex flex-col">
-        {/* Navigation below top bar */}
-        <div className="flex-shrink-0 mt-12">
-          <TaskNavClient taskId={task.task_id} />
-        </div>
         {/* Main workspace */}
         <div className="flex-1 min-h-0">
           <SolveWorkspace taskId={task.task_id} />

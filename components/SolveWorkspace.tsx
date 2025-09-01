@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from "react";
 import RichMathEditor, { type RichMathEditorHandle } from "@/components/RichMathEditor";
 import MathChat from "@/components/MathChat";
 import TaskNavigation from "@/components/TaskNavigation";
+import MathEditorHeader from "@/components/math/MathEditorHeader";
 
 type Props = {
 	taskId: string;
@@ -53,12 +54,36 @@ export default function SolveWorkspace({ taskId }: Props) {
 	}, []);
 	
 	return (
-		<div className="resize-container flex h-full w-full p-3 md:p-4 gap-2 md:gap-4">
-			{/* Left side: Chat */}
-			<div 
-				className="flex flex-col min-h-0 bg-white/30 backdrop-blur-sm border border-white/40 rounded-xl shadow-lg"
-				style={{ width: `${leftWidth}%` }}
-			>
+		<div className="flex flex-col h-full w-full">
+			{/* Math Editor Header with Symbols */}
+			<div className="flex-shrink-0">
+				<MathEditorHeader 
+					onAddFormula={() => {
+						editorRef.current?.focus();
+						editorRef.current?.insertNewFormula();
+					}}
+					onInsertIntoActive={(content) => {
+						return editorRef.current?.insertIntoActiveFormula(content) || false;
+					}}
+					onSymbolClick={(symbol) => {
+						// Try inserting into the active formula first without changing focus
+						if (editorRef.current?.insertIntoActiveFormula(symbol)) {
+							return;
+						}
+						// If no active formula, focus the editor and insert a new one
+						editorRef.current?.focus();
+						editorRef.current?.insertNewFormula(symbol);
+					}}
+				/>
+			</div>
+			
+			{/* Main Workspace */}
+			<div className="resize-container flex flex-1 p-2 md:p-3 gap-2 md:gap-3 text-xs md:text-sm transform origin-top xl:scale-90 2xl:scale-75">
+				{/* Left side: Chat */}
+				<div 
+					className="flex flex-col min-h-0 bg-white/30 backdrop-blur-sm border border-white/40 rounded-xl shadow-lg"
+					style={{ width: `${leftWidth}%` }}
+				>
 				<MathChat 
 					taskId={taskId} 
 					editorRef={editorRef} 
@@ -74,11 +99,11 @@ export default function SolveWorkspace({ taskId }: Props) {
 			
 			{/* Right side: Editor + Instructions */}
 			<div 
-				className="flex flex-col min-h-0"
+				className="flex flex-col h-full min-h-0"
 				style={{ width: `${100 - leftWidth}%` }}
 			>
-				{/* Math Editor */}
-				<div className="flex-1 min-h-0 bg-white/30 backdrop-blur-sm border border-white/40 rounded-xl shadow-lg mb-3 md:mb-4">
+				{/* Math Editor (65% height) */}
+				<div className="basis-3/5 grow-0 h-full min-h-0 bg-white/30 backdrop-blur-sm border border-white/40 rounded-xl shadow-lg mb-2">
 					<RichMathEditor 
 						ref={editorRef} 
 						initialText="" 
@@ -86,8 +111,13 @@ export default function SolveWorkspace({ taskId }: Props) {
 					/>
 				</div>
 				
-				{/* Editor Instructions */}
-				<div className="bg-white/30 backdrop-blur-sm border border-white/40 rounded-xl shadow-lg p-3 md:p-4">
+				{/* Task Navigation (15% height) */}
+				<div className="basis-1/6 grow-0 overflow-hidden mb-2">
+					<TaskNavigation taskId={taskId} />
+				</div>
+				
+				{/* Editor Instructions (20% height) */}
+				<div className="basis-1/5 grow-0 overflow-auto bg-white/30 backdrop-blur-sm border border-white/40 rounded-xl shadow-lg p-3 md:p-4">
 					<h3 className="text-xs md:text-sm font-medium text-gray-900 mb-2">Editorin käyttö:</h3>
 					<div className="text-[11px] md:text-xs text-gray-600 space-y-1">
 						<p>• Lisää kaava: Ctrl+E (Mac: Cmd+E)</p>
@@ -96,6 +126,7 @@ export default function SolveWorkspace({ taskId }: Props) {
 					</div>
 				</div>
 			</div>
+		</div>
 		</div>
 	);
 } 

@@ -23,28 +23,20 @@ export async function GET(
       return NextResponse.json({ error: "Task not found" }, { status: 404 });
     }
 
-    const taskData = taskDoc.data();
+    const taskData = taskDoc.data() as (TaskV2 | undefined);
+    if (!taskData) {
+      return NextResponse.json({ error: "Task not found" }, { status: 404 });
+    }
 
-    // Convert to the same format as original tasks
     const task = {
       task_id: taskData.task_id,
-      module: taskData.module,
-      section: taskData.section,
       question: taskData.question,
       solution_steps: taskData.solution_steps,
       final_answer: taskData.final_answer,
       difficulty: taskData.difficulty,
-      task_type: taskData.task_type,
-      category: taskData.category,
-      exam_year: taskData.exam_year,
-      exam_session: taskData.exam_session,
-      time_limit: taskData.time_limit,
-      hints: taskData.hints || [],
-      common_mistakes: taskData.common_mistakes || [],
-      status: taskData.status,
-      created_at: taskData.created_at?.toDate?.()?.toISOString() || taskData.created_at,
-      updated_at: taskData.updated_at?.toDate?.()?.toISOString() || taskData.updated_at
-    };
+      course_id: taskData.course_id,
+      subject_id: taskData.subject_id
+    } as TaskV2;
 
     console.log("Task2 found:", task.task_id);
 
@@ -95,7 +87,10 @@ export async function PUT(
       updated_at: new Date()
     };
 
-    await adminDb.collection('tasks2').doc(taskId).update(updateData);
+    await adminDb.collection('tasks2').doc(taskId).update({
+      ...updateData,
+      updated_at: new Date()
+    });
 
     console.log(`Task2 ${taskId} updated successfully`);
 
