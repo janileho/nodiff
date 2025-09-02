@@ -26,9 +26,14 @@ export default function TaskNavigation({ taskId }: Props) {
   useEffect(() => {
     const loadCurrent = async () => {
       try {
-        let res = await fetch(`/api/tasks2/${taskId}`);
-        if (!res.ok) {
-          res = await fetch(`/api/tasks/${taskId}`);
+        let res: Response;
+        if (String(taskId).startsWith("user_")) {
+          res = await fetch(`/api/user-tasks/${taskId}`);
+        } else {
+          res = await fetch(`/api/tasks2/${taskId}`);
+          if (!res.ok) {
+            res = await fetch(`/api/tasks/${taskId}`);
+          }
         }
         if (res.ok) {
           const data = await res.json();
@@ -80,7 +85,12 @@ export default function TaskNavigation({ taskId }: Props) {
           return na - nb;
         });
         setAllTasks(tasks);
-        setCurrentIndex(tasks.findIndex(t => t.task_id === taskId));
+        let idx = tasks.findIndex(t => t.task_id === taskId);
+        if (idx === -1 && String(taskId).startsWith("user_")) {
+          // If current is a user task, position at start so Next goes to first global task
+          idx = 0;
+        }
+        setCurrentIndex(idx);
       } catch {
         setAllTasks([]);
         setCurrentIndex(-1);

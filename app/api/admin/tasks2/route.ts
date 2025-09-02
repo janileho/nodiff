@@ -80,10 +80,12 @@ export async function GET(request: NextRequest) {
 
     console.log(`Found ${tasks.length} tasks2 after filtering`);
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       tasks,
       total: tasks.length
     });
+    res.headers.set('Cache-Control', 'public, max-age=0, s-maxage=30, stale-while-revalidate=60');
+    return res;
 
   } catch (error) {
     console.error("Error fetching tasks2:", error);

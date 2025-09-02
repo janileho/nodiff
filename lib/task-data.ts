@@ -36,18 +36,24 @@ export async function getTaskData(taskId?: string): Promise<TaskData | null> {
 	}
 
 	try {
-		// Try tasks2 first, then fall back to original tasks
+		// If user-specific task id, fetch only from user endpoint
+		if (String(taskId).startsWith("user_")) {
+			const response = await fetch(`/api/user-tasks/${taskId}`);
+			if (response.ok) {
+				return await response.json();
+			}
+			return null;
+		}
+
+		// Otherwise try global tasks (v2 first, then legacy)
 		let response = await fetch(`/api/tasks2/${taskId}`);
 		if (response.ok) {
 			return await response.json();
 		}
-		
-		// Fall back to original tasks API
 		response = await fetch(`/api/tasks/${taskId}`);
 		if (response.ok) {
 			return await response.json();
 		}
-		
 		return null;
 	} catch (error) {
 		console.error("Error fetching task data:", error);

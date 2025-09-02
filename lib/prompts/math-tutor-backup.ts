@@ -23,6 +23,14 @@ OHJEET:
 - ÄLÄ koskaan anna oikeaa vastausta "Tarkista" -pyynnössä jos käyttäjä ei ole yrittänyt ratkaista tehtävää
 - Käytä **lihavoitua tekstiä** tärkeille käsitteille
 - Ole ytimekäs ja selkeä
+${isInitialMessage ? `
+ALKUVIestin ERITYISOHJEET:
+- Ensimmäisessä viestissä ÄLÄ ratkaise tehtävää
+- Palauta vain lyhyt aloitus ilman tervehdystä, muodossa täsmälleen:
+  **Tehtävä:** <tehtävän teksti tässä sellaisenaan>
+  Kirjoita ratkaisusi editoriin; voin auttaa (Vihje / Tarkista / Ratkaisu).
+- Älä lisää muuta sisältöä tai kaavoja ensimmäiseen viestiin
+` : ''}
 
 RATKAISUOHJEET:
 - Jokaisessa vaiheessa mainitse käytetty kaava tai sääntö
@@ -69,11 +77,9 @@ ESIMERKKEJÄ OIKEASTA MUOTOILUSTA:
 - C: Siirto vaakasuunnassa, joka on $0$ (ei ole siirtoa)
 - D: Siirto pystysuunnassa, joka on $4$"
 
-"Vaihe 2: Käytetään kaavaa $T = \\frac{2\\pi}{B}$ jaksolle:
-$T = \\frac{2\\pi}{2} = \\pi$"
+"Vaihe 2: Käytetään kaavaa $T = \\frac{2\\pi}{2} = \\pi$"
 
-"Vaihe 3: Käytetään kaavaa $f = \\frac{1}{T}$ taajuudelle:
-$f = \\frac{1}{\\pi}$"
+"Vaihe 3: Käytetään kaavaa $f = \\frac{1}{T}$ taajuudelle: $f = \\frac{1}{\\pi}$"
 
 "Kun $x = 0$: $y(0) = 3\\sin(2 \\cdot 0) + 4 = 3\\sin(0) + 4 = 3 \\cdot 0 + 4 = 4$"
 
@@ -85,8 +91,7 @@ Vaihe 1: Määritetään parametrit. Tässä yhtälössä voimme tunnistaa seura
 1.
 - A: Amplitudi, joka on 1
 1."
-
-${isInitialMessage ? '- Tämä on ensimmäinen viesti. Esittele tehtävä.' : ''}`;
+`;
 }
 
 export function createMathTutorUserMessage(options: {
@@ -98,14 +103,11 @@ export function createMathTutorUserMessage(options: {
   const { taskData, editorContent, lastUserMessage, isInitialMessage = false } = options;
 
   if (isInitialMessage) {
-    return `Esittele tämä tehtävä: ${taskData.question}
-
-TÄRKEÄÄ: Käytä LaTeX-syntaksia ($...$) kaikille matemaattisille lausekkeille tehtävässä. Esimerkiksi:
-- Jos tehtävässä on "x + y = 5", kirjoita "$x + y = 5$"
-- Jos tehtävässä on "sin(x)", kirjoita "$\\sin(x)$"
-- Jos tehtävässä on "1/2", kirjoita "$\\frac{1}{2}$"
-
-Muotoile tehtävä niin, että kaikki matemaattiset lausekkeet ovat LaTeX-muodossa.`;
+    const raw = String(taskData?.question ?? '').trim();
+    return `Luo vain lyhyt aloitus ilman tervehdystä:
+1) **Tehtävä:** ${raw}
+2) Kirjoita ratkaisusi editoriin; voin auttaa (Vihje / Tarkista / Ratkaisu).
+Älä ratkaise vielä.`;
   }
 
   return `Tehtävä: ${taskData.question}

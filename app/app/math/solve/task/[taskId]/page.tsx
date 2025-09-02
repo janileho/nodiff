@@ -5,46 +5,37 @@ import SolveWorkspace from "@/components/SolveWorkspace";
 import type { TaskData } from "@/lib/task-data";
 
 interface TaskPageProps {
-  params: {
+  params: Promise<{
     taskId: string;
-  };
+  }>;
 }
 
 export default async function TaskPage({ params }: TaskPageProps) {
+  const { taskId } = await params;
   const user = await getCurrentUserFromSession();
   if (!user) redirect("/login");
 
-  console.log("TaskPage: Looking for taskId:", params.taskId);
-
-  // Try to get task from tasks2 first, then fall back to original tasks
   try {
-    // First, try to get from tasks2 collection using task_id as document ID
-    let taskDoc = await adminDb.collection("tasks2").doc(params.taskId).get();
-    let collectionName = "tasks2";
-    
-    // If not found in tasks2, try original tasks collection
+    // user-specific tasks first (users/{uid}/tasks)
+    let taskDoc = await adminDb
+      .collection("users").doc(user.uid)
+      .collection("tasks").doc(taskId)
+      .get();
+
     if (!taskDoc.exists) {
-      console.log("TaskPage: Task not found in tasks2, trying tasks collection");
-      taskDoc = await adminDb.collection("tasks").doc(params.taskId).get();
-      collectionName = "tasks";
+      taskDoc = await adminDb.collection("tasks2").doc(taskId).get();
     }
-    
     if (!taskDoc.exists) {
-      console.log("TaskPage: Task not found in either collection, redirecting");
-      redirect("/app"); // Redirect if task not found in either collection
+      taskDoc = await adminDb.collection("tasks").doc(taskId).get();
     }
-    
-    const data = taskDoc.data();
-    console.log("TaskPage: Task found in", collectionName, "with data:", data);
-    
-    if (!data) {
-      console.log("TaskPage: Task data is null, redirecting");
-      redirect("/app");
-    }
-    
-    // Convert Firestore timestamps to plain objects and ensure task_id exists
+
+    if (!taskDoc.exists) redirect("/app");
+
+    const data: any = taskDoc.data();
+    if (!data) redirect("/app");
+
     const task: TaskData = {
-      task_id: data.task_id,
+      task_id: data.task_id ?? taskId,
       module: data.module,
       section: data.section,
       question: data.question,
@@ -60,26 +51,19 @@ export default async function TaskPage({ params }: TaskPageProps) {
       common_mistakes: data.common_mistakes || [],
       status: data.status,
       created_at: data.created_at?.toDate?.()?.toISOString() || data.created_at,
-      updated_at: data.updated_at?.toDate?.()?.toISOString() || data.updated_at
+      updated_at: data.updated_at?.toDate?.()?.toISOString() || data.updated_at,
     };
-    
-    if (!task.task_id) {
-      console.log("TaskPage: task_id is missing from task data, redirecting");
-      redirect("/app"); // Redirect if task_id is missing
-    }
 
-    console.log(`TaskPage: Task found in ${collectionName}:`, task.task_id);
+    if (!task.task_id) redirect("/app");
 
     return (
       <div className="h-full bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 overflow-hidden flex flex-col">
-        {/* Main workspace */}
         <div className="flex-1 min-h-0">
           <SolveWorkspace taskId={task.task_id} />
         </div>
       </div>
     );
-  } catch (error) {
-    console.error('TaskPage: Error fetching task:', error);
-    redirect("/app"); // Redirect on error
+  } catch {
+    redirect("/app");
   }
 } 

@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import TeX from "@matejmazur/react-katex";
 import type { RichMathEditorHandle } from "@/components/RichMathEditor";
 import { getTaskData, getTaskQuestion } from "@/lib/task-data";
+import { motion } from "framer-motion";
 
 type Message = { role: "user" | "assistant"; content: string };
 
@@ -21,7 +22,8 @@ function renderMessageContent(content: string) {
 	// Handle nested LaTeX properly - only convert $$ to \[ \] for display math
 	processedContent = processedContent
 		.replace(/\$\$([^$]+)\$\$/g, '\\[$1\\]') // Convert $$ to \[ \]
-		.replace(/\\\[([^\]]*)\\\]/g, '\\[$1\\]'); // Fix display math
+		.replace(/\\\[([^\]]*)\\\]/g, '\\[$1\\]') // Normalize existing display math
+		.replace(/\\\(([\s\S]*?)\\\)/g, '$$$1$'); // Convert \( ... \) to inline $...$
 	
 	// Split content by LaTeX delimiters with better regex
 	const parts = processedContent.split(/(\$[^$\n]+\$|\\\[[^\]]*\\\])/);
@@ -123,6 +125,8 @@ export default function MathChat({ taskId, editorRef, editorContent }: Props) {
 	const [error, setError] = useState<string | null>(null);
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const [isInitialized, setIsInitialized] = useState(false);
+	const initializedTaskRef = useRef<string | null>(null);
+	const scrollRef = useRef<HTMLDivElement>(null);
 
 	// Auto-resize textarea
 	useEffect(() => {
@@ -130,6 +134,16 @@ export default function MathChat({ taskId, editorRef, editorContent }: Props) {
 			textareaRef.current.style.height = "44px";
 		}
 	}, [input]);
+
+	// Auto-scroll helper (called ONLY on user message add)
+	const scrollToBottom = useCallback(() => {
+		if (!scrollRef.current) return;
+		try {
+			scrollRef.current.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' });
+		} catch {}
+	}, []);
+
+	// No global autoscroll on any message change
 
 	// Prevent body scrolling
 	useEffect(() => {
@@ -139,111 +153,107 @@ export default function MathChat({ taskId, editorRef, editorContent }: Props) {
 		};
 	}, []);
 
-	// Initialize chat with task data
+	// Initialize chat with task data (start stream immediately; fallback to simple intro if fails)
 	useEffect(() => {
-		console.log('Initializing chat for taskId:', taskId);
-		if (!isInitialized) {
-			getTaskData(taskId).then(async taskData => {
-				console.log('Task data received:', taskData);
-				if (!taskData) {
-					console.log('No task data found');
-					return;
+		// Guard: prevent duplicate starts for the same taskId
+		if (initializedTaskRef.current === taskId) return;
+
+		let cancelled = false;
+		const controller = new AbortController();
+
+		(async () => {
+			// init stream
+			try {
+				const response = await fetch('/api/math/coach/stream', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						taskId,
+						editorContent: "",
+						conversation: [],
+						isInitialMessage: true
+					}),
+					signal: controller.signal,
+				});
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
 				}
-				
-				// Get initial message from AI with proper LaTeX formatting
-				try {
-					const response = await fetch('/api/math/coach/stream', {
-						method: 'POST',
-						headers: {
-							'Content-Type': 'application/json',
-						},
-						body: JSON.stringify({
-							taskId,
-							editorContent: "",
-							conversation: [],
-							isInitialMessage: true
-						}),
-					});
-
-					if (!response.ok) {
-						throw new Error(`HTTP error! status: ${response.status}`);
+				// Handle streaming response
+				const reader = response.body?.getReader();
+				if (!reader) {
+					throw new Error('No response body');
+				}
+				// Mark initialized only once stream is actually open
+				initializedTaskRef.current = taskId;
+				setIsInitialized(true);
+				let assistantMessage = "";
+				setMessages([{ role: "assistant", content: assistantMessage }]);
+				const decoder = new TextDecoder();
+				while (true) {
+					if (cancelled) {
+						try { await reader.cancel(); } catch {}
+						break;
 					}
-
-					// Handle streaming response
-					const reader = response.body?.getReader();
-					if (!reader) {
-						throw new Error('No response body');
-					}
-
-					let assistantMessage = "";
-					setMessages([{ role: "assistant", content: assistantMessage }]);
-
-					const decoder = new TextDecoder();
-					while (true) {
-						const { done, value } = await reader.read();
-						if (done) break;
-
-						const chunk = decoder.decode(value);
-						const lines = chunk.split('\n');
-						
-						for (const line of lines) {
-							if (line.startsWith('data: ')) {
-								const data = line.slice(6);
-								
-								if (data === '[DONE]') break;
-								
-								try {
-									const parsed = JSON.parse(data);
-									
-									// Handle OpenAI streaming format
-									if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content) {
-										const content = parsed.choices[0].delta.content;
-										assistantMessage += content;
-										setMessages([{ 
-											role: "assistant", 
-											content: assistantMessage 
-										}]);
-									}
-								} catch (e) {
-									// Ignore parsing errors for incomplete JSON
+					const { done, value } = await reader.read();
+					if (done) break;
+					const chunk = decoder.decode(value);
+					const lines = chunk.split('\n');
+					for (const line of lines) {
+						if (line.startsWith('data: ')) {
+							const data = line.slice(6);
+							if (data === '[DONE]') break;
+							try {
+								const parsed = JSON.parse(data);
+								if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content) {
+									const content = parsed.choices[0].delta.content;
+									assistantMessage += content;
+									setMessages([{ role: "assistant", content: assistantMessage }]);
 								}
-							}
+							} catch {}
 						}
 					}
-				} catch (err) {
-					console.error('Error fetching initial message:', err);
-					// Fallback to simple message if AI fails
-					const question = getTaskQuestion(taskData);
-					const fallbackMessage = `**Tehtävä:** ${question}
-
-Kirjoita ratkaisusi editoriin ja minä autan sinua tehtävän loppuun asti.`;
-					
-					setMessages([{ 
-						role: "assistant", 
-						content: fallbackMessage 
-					}]);
 				}
-				
-				setIsInitialized(true);
-			});
-		}
-	}, [taskId, isInitialized]);
+			} catch (err: any) {
+				if (err?.name === 'AbortError') {
+					// Ignore abort errors from unmount/route change
+					return;
+				}
+				// fallback intro on error
+				console.error('Initial message failed');
+				// Fallback to simple message if AI fails
+				try {
+					const taskData = await getTaskData(taskId);
+					const question = taskData ? getTaskQuestion(taskData) : '';
+					const fallbackMessage = taskData
+						? `**Tehtävä:** ${question}\n\nKirjoita ratkaisusi editoriin ja minä autan sinua tehtävän loppuun asti.`
+						: `Kirjoita ratkaisusi editoriin ja minä autan sinua tehtävän loppuun asti.`;
+					setMessages([{ role: "assistant", content: fallbackMessage }]);
+				} catch {}
+			}
+		})();
 
+		return () => {
+			cancelled = true;
+			try {
+				controller.abort();
+			} catch {}
+		};
+	}, [taskId]);
 
 
 
 
 	// Send message function
 	const sendMessage = async (messageContent: string) => {
-		console.log('sendMessage called with:', messageContent);
+		// user send
 		if (!messageContent.trim() || isLoading) {
-			console.log('Message empty or already loading, returning');
+			// skip empty
 			return;
 		}
 
 		const userMessage: Message = { role: "user", content: messageContent };
-		console.log('Adding user message to chat');
 		setMessages(prev => [...prev, userMessage]);
+		scrollToBottom();
 		setInput("");
 		setIsLoading(true);
 		setError(null);
@@ -284,20 +294,17 @@ Kirjoita ratkaisusi editoriin ja minä autan sinua tehtävän loppuun asti.`;
 				if (done) break;
 
 				const chunk = decoder.decode(value);
-				console.log('Raw chunk:', chunk); // Debug log
 				
 				const lines = chunk.split('\n');
 				
 				for (const line of lines) {
 					if (line.startsWith('data: ')) {
 						const data = line.slice(6);
-						console.log('Data line:', data); // Debug log
 						
 						if (data === '[DONE]') break;
 						
 						try {
 							const parsed = JSON.parse(data);
-							console.log('Parsed data:', parsed); // Debug log
 							
 							// Handle OpenAI streaming format
 							if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content) {
@@ -315,14 +322,13 @@ Kirjoita ratkaisusi editoriin ja minä autan sinua tehtävän loppuun asti.`;
 								});
 							}
 						} catch (e) {
-							console.log('Parse error for line:', data, e); // Debug log
-							// Ignore parsing errors for incomplete JSON
+							// ignore partial json
 						}
 					}
 				}
 			}
 		} catch (err) {
-			console.error('Chat error:', err);
+			console.error('Chat error');
 			setError(err instanceof Error ? err.message : 'An error occurred');
 			setMessages(prev => [...prev, { 
 				role: "assistant", 
@@ -338,25 +344,24 @@ Kirjoita ratkaisusi editoriin ja minä autan sinua tehtävän loppuun asti.`;
 		// Show only "Vihje" in chat, but send the full prompt to API
 		const displayMessage: Message = { role: "user", content: "Vihje" };
 		setMessages(prev => [...prev, displayMessage]);
+		scrollToBottom();
 		setIsLoading(true);
 		setError(null);
 
-		const hintPrompt = "Anna vain yksi seuraava askel ratkaisussa. Älä selitä liikaa, vain seuraava askel.";
-		console.log('Sending hint prompt:', hintPrompt);
-
-		// Send the actual prompt in the background
-		sendMessageInternal(hintPrompt);
+		// Send only the keyword so server treats it as structured "Vihje"
+		sendMessageInternal("Vihje");
 	};
 
 	const requestFormulas = () => {
 		// Show only "Kaavat" in chat, but send the full prompt to API
 		const displayMessage: Message = { role: "user", content: "Kaavat" };
 		setMessages(prev => [...prev, displayMessage]);
+		scrollToBottom();
 		setIsLoading(true);
 		setError(null);
 
-		const formulasPrompt = "Listaa kaikki kaavat ja sääntöjä, joita tarvitaan tämän tehtävän ratkaisemiseen. Selitä lyhyesti mitä kukin kaava tarkoittaa ja milloin sitä käytetään. Käytä LaTeX-syntaksia kaavoille.";
-		console.log('Sending formulas prompt:', formulasPrompt);
+		const formulasPrompt = "Palauta VAIN tämän tehtävän ratkaisemiseen tarvittavat kaavat LaTeX-muodossa, yksi kaava per rivi. Älä lisää mitään muuta tekstiä, ei otsikoita, ei selityksiä, ei esimerkkejä, ei tyhjiä rivejä.";
+		// formulas prompt
 
 		// Send the actual prompt in the background
 		sendMessageInternal(formulasPrompt);
@@ -366,6 +371,7 @@ Kirjoita ratkaisusi editoriin ja minä autan sinua tehtävän loppuun asti.`;
 		// Show only "Tarkista" in chat, but send the full prompt to API
 		const displayMessage: Message = { role: "user", content: "Tarkista" };
 		setMessages(prev => [...prev, displayMessage]);
+		scrollToBottom();
 		setIsLoading(true);
 		setError(null);
 
@@ -383,7 +389,7 @@ Kirjoita ratkaisusi editoriin ja minä autan sinua tehtävän loppuun asti.`;
 			// Check if editor is empty
 			if (!editorContent.trim()) {
 				const emptyPrompt = `Editori on tyhjä. Pyydä käyttäjää kirjoittamaan ratkaisunsa editoriin ennen tarkistamista. Älä anna oikeaa vastausta.`;
-				console.log('Sending empty editor prompt:', emptyPrompt);
+				// empty editor prompt
 				sendMessageInternal(emptyPrompt);
 				return;
 			}
@@ -395,7 +401,7 @@ Oikea vastaus: ${correctAnswer}
 
 Jos ratkaisu on väärin, älä anna oikeaa vastausta, vaan kerro missä virhe on ja miten jatkaa korjaamista. Jos se on oikein, sano että se on oikein.`;
 
-			console.log('Sending check prompt:', fullPrompt);
+			// check prompt
 
 			// Send the actual prompt in the background
 			sendMessageInternal(fullPrompt);
@@ -406,11 +412,12 @@ Jos ratkaisu on väärin, älä anna oikeaa vastausta, vaan kerro missä virhe o
 		// Show only "Ratkaisu" in chat, but send the full prompt to API
 		const displayMessage: Message = { role: "user", content: "Ratkaisu" };
 		setMessages(prev => [...prev, displayMessage]);
+		scrollToBottom();
 		setIsLoading(true);
 		setError(null);
 
 		const solutionPrompt = "Anna täydellinen ratkaisu tälle tehtävälle. Näytä kaikki vaiheet selkeästi ja selitä mitä teet jokaisessa vaiheessa.";
-		console.log('Sending solution prompt:', solutionPrompt);
+		// solution prompt
 
 		// Send the actual prompt in the background - this should give full solution
 		sendMessageInternal(solutionPrompt);
@@ -457,20 +464,17 @@ Jos ratkaisu on väärin, älä anna oikeaa vastausta, vaan kerro missä virhe o
 				if (done) break;
 
 				const chunk = decoder.decode(value);
-				console.log('Raw chunk:', chunk); // Debug log
 				
 				const lines = chunk.split('\n');
 				
 				for (const line of lines) {
 					if (line.startsWith('data: ')) {
 						const data = line.slice(6);
-						console.log('Data line:', data); // Debug log
 						
 						if (data === '[DONE]') break;
 						
 						try {
 							const parsed = JSON.parse(data);
-							console.log('Parsed data:', parsed); // Debug log
 							
 							// Handle OpenAI streaming format
 							if (parsed.choices && parsed.choices[0] && parsed.choices[0].delta && parsed.choices[0].delta.content) {
@@ -488,14 +492,13 @@ Jos ratkaisu on väärin, älä anna oikeaa vastausta, vaan kerro missä virhe o
 								});
 							}
 						} catch (e) {
-							console.log('Parse error for line:', data, e); // Debug log
-							// Ignore parsing errors for incomplete JSON
+							// ignore partial json
 						}
 					}
 				}
 			}
 		} catch (err) {
-			console.error('Chat error:', err);
+			console.error('Chat error');
 			setError(err instanceof Error ? err.message : 'An error occurred');
 			setMessages(prev => [...prev, { 
 				role: "assistant", 
@@ -524,15 +527,21 @@ Jos ratkaisu on väärin, älä anna oikeaa vastausta, vaan kerro missä virhe o
 
 	return (
 		<div className="flex flex-col h-full overflow-hidden text-xs md:text-sm" style={{ overflow: 'hidden' }}>
+			{/* Initial progress bar */}
+			{!isInitialized && (
+				<div className="h-0.5 w-full bg-transparent">
+					<div className="h-0.5 w-1/3 bg-blue-500/60 animate-pulse" />
+				</div>
+			)}
 			{/* Messages */}
-			<div className="flex-1 overflow-y-auto min-h-0 p-4" style={{
+			<div ref={scrollRef} className="flex-1 overflow-y-auto min-h-0 p-4" style={{
 				direction: 'rtl',
 				scrollbarWidth: 'thin',
 				scrollbarColor: 'rgba(59, 130, 246, 0.3) transparent'
 			}}>
 				<div style={{ direction: 'ltr' }}>
 					{messages.map((msg, idx) => (
-						<div key={idx} className="py-4">
+						<motion.div key={idx} className="py-4" initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.15 }}>
 							<div className="max-w-4xl mx-auto px-4">
 								{msg.role === "assistant" ? (
 									<div className="flex gap-3">
@@ -562,7 +571,7 @@ Jos ratkaisu on väärin, älä anna oikeaa vastausta, vaan kerro missä virhe o
 									</div>
 								)}
 							</div>
-						</div>
+						</motion.div>
 					))}
 					
 					{/* Loading indicator */}
@@ -572,7 +581,7 @@ Jos ratkaisu on väärin, älä anna oikeaa vastausta, vaan kerro missä virhe o
 								<div className="flex gap-3">
 									<div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-medium flex-shrink-0">
 										AI
-									</div>
+										</div>
 									<div className="flex-1 pt-1">
 										<div className="flex space-x-1">
 											<div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
@@ -584,7 +593,7 @@ Jos ratkaisu on väärin, älä anna oikeaa vastausta, vaan kerro missä virhe o
 							</div>
 						</div>
 					)}
-
+					
 					{/* Error message */}
 					{error && (
 						<div className="py-4">
@@ -647,6 +656,16 @@ Jos ratkaisu on väärin, älä anna oikeaa vastausta, vaan kerro missä virhe o
 								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
 							</svg>
 							Ratkaisu
+						</button>
+						<button
+							onClick={() => { const m: Message = { role: "user", content: "Vastaukset" }; setMessages(prev => [...prev, m]); scrollToBottom(); setIsLoading(true); setError(null); sendMessageInternal("Palauta VAIN lopullinen vastaus/vastaukset tälle tehtävälle. Yksi per rivi, ilman mitään muuta tekstiä. Käytä LaTeX tarvittaessa."); }}
+							disabled={isLoading}
+							className="inline-flex items-center gap-2 px-3 py-1.5 text-pink-600 hover:text-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-sm font-medium"
+						>
+							<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M12 20.5a8.5 8.5 0 100-17 8.5 8.5 0 000 17z" />
+							</svg>
+							Vastaukset
 						</button>
 					</div>
 					

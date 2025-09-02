@@ -1,104 +1,133 @@
+import { NextRequest } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
+import { getCurrentUserFromSession } from "@/lib/auth";
 import { createMathTutorSystemPrompt, createMathTutorUserMessage } from "@/lib/prompts/math-tutor-backup";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
 
-export const maxDuration = 30;
+export async function POST(req: NextRequest) {
+	const body = await req.json();
+	const taskId = String(body.taskId ?? "eq_001");
+	const editorContent = String(body.editorContent ?? "");
+	const conversation = (body.conversation as Array<{ role: string; content: string }>) || [];
+	const isInitialMessage = Boolean(body.isInitialMessage ?? false);
 
-export async function POST(req: Request) {
-  try {
-    const { taskId, editorContent, conversation, isInitialMessage } = await req.json();
+	// Last user message
+	const lastUser = [...conversation].reverse().find((m) => m.role === "user")?.content ?? "";
 
-    console.log('API received:', { taskId, editorContent, conversation, isInitialMessage });
+	// Resolve task data (user-scoped → tasks2 → legacy tasks)
+	let taskData: any;
+	try {
+		const user = await getCurrentUserFromSession();
+		if (user) {
+			const userDoc = await adminDb
+				.collection("users").doc(user.uid)
+				.collection("tasks").doc(taskId)
+				.get();
+			if (userDoc.exists) {
+				taskData = { id: userDoc.id, ...userDoc.data() };
+			}
+		}
+		if (!taskData) {
+			const v2Doc = await adminDb.collection("tasks2").doc(taskId).get();
+			if (v2Doc.exists) {
+				taskData = { id: v2Doc.id, ...v2Doc.data() };
+			} else {
+				const legacySnap = await adminDb
+					.collection("tasks")
+					.where("task_id", "==", taskId)
+					.limit(1)
+					.get();
+				if (legacySnap.empty) {
+					return new Response("data: {\"error\":\"not_found\"}\n\n", {
+						status: 404,
+						headers: { "Content-Type": "text/event-stream; charset=utf-8" },
+					});
+				}
+				const doc = legacySnap.docs[0];
+				taskData = { id: doc.id, ...doc.data() } as any;
+			}
+		}
+	} catch (e) {
+		return new Response("data: {\"error\":\"task_fetch_failed\"}\n\n", {
+			status: 500,
+			headers: { "Content-Type": "text/event-stream; charset=utf-8" },
+		});
+	}
 
-    // Fetch task data from Firebase
-    let taskDoc = await adminDb.collection('tasks2').doc(taskId).get();
-    let taskData: any;
-    
-    if (!taskDoc.exists) {
-      // Fall back to original tasks collection
-      const originalTaskDoc = await adminDb.collection('tasks')
-        .where('task_id', '==', taskId)
-        .limit(1)
-        .get();
-      
-      if (originalTaskDoc.empty) {
-        return new Response('Task not found', { status: 404 });
-      }
-      
-      const doc = originalTaskDoc.docs[0];
-      taskData = {
-        id: doc.id,
-        ...doc.data()
-      };
-    } else {
-      // Use tasks2 data
-      const data = taskDoc.data();
-      taskData = {
-        id: taskDoc.id,
-        ...data
-      };
-    }
+	// Detect free chat vs structured math prompts (case-insensitive)
+	const trimmed = lastUser.trim();
+	const actionRegex = /^(vihje|kaavat|tarkista|ratkaisu)$/i;
+	const keywordsRegex = /(täydellinen ratkaisu|palauta vain|tarkista ratkaisu|tehtävä:|ratkaise:)/i;
+	const looksLikeStructured = isInitialMessage || actionRegex.test(trimmed) || keywordsRegex.test(trimmed);
 
-    if (!taskData) {
-      return new Response('Task data not found', { status: 404 });
-    }
+	const system = looksLikeStructured
+		? createMathTutorSystemPrompt({ isInitialMessage, taskData })
+		: "Olet avulias keskusteluassistentti. Keskustele vapaasti käyttäjän kanssa. Vastaa suomeksi, ellei käyttäjä pyydä muuta.";
 
-    // Get the last user message from conversation
-    const lastUser = conversation?.[conversation.length - 1]?.content || "";
+	const userMsg = looksLikeStructured
+		? createMathTutorUserMessage({ taskData, editorContent, lastUserMessage: lastUser, isInitialMessage })
+		: lastUser;
 
-    console.log('Last user message:', lastUser);
-    console.log('Editor content:', editorContent);
+	// Build model messages
+	let modelMessages: Array<{ role: "user" | "assistant"; content: string }> = [];
+	if (looksLikeStructured) {
+		modelMessages = [{ role: "user", content: userMsg }];
+	} else {
+		modelMessages = conversation
+			.filter(m => m.role === "user" || m.role === "assistant")
+			.map(m => ({ role: m.role as "user" | "assistant", content: String(m.content ?? "") }));
+	}
 
-    // Create system and user prompts
-    const systemPrompt = createMathTutorSystemPrompt({
-      isInitialMessage,
-      taskData
-    });
+	// Stream via Vercel AI SDK and wrap into OpenAI-compatible SSE deltas
+	try {
+		const result = await streamText({
+			model: openai("gpt-4o-mini"),
+			system,
+			messages: modelMessages,
+			maxOutputTokens: 1000,
+			temperature: 0.3,
+		});
 
-    const userMessage = createMathTutorUserMessage({
-      taskData,
-      editorContent,
-      lastUserMessage: lastUser,
-      isInitialMessage
-    });
+		const encoder = new TextEncoder();
+		const textStream = result.textStream;
 
-    console.log('System prompt:', systemPrompt);
-    console.log('User message:', userMessage);
-    console.log('Last user message:', lastUser);
+		const stream = new ReadableStream({
+			start(controller) {
+				const reader = textStream.getReader();
+				const pump = (): void => {
+					reader.read().then(({ done, value }) => {
+						if (done) {
+							controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+							controller.close();
+							return;
+						}
+						if (value) {
+							const line = JSON.stringify({ choices: [{ delta: { content: value } }] });
+							controller.enqueue(encoder.encode(`data: ${line}\n\n`));
+						}
+						pump();
+					}).catch((err) => {
+						controller.error(err);
+					});
+				};
+				pump();
+			},
+		});
 
-    // Use OpenAI streaming API directly
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMessage }
-        ],
-        stream: true,
-        temperature: 0.3,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    console.log('Streaming response...');
-    
-    // Return the streaming response directly
-    return new Response(response.body, {
-      headers: {
-        'Content-Type': 'text/plain; charset=utf-8',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
-    });
-  } catch (error) {
-    console.error('Chat API error:', error);
-    return new Response('Internal server error', { status: 500 });
-  }
+		return new Response(stream, {
+			status: 200,
+			headers: {
+				"Content-Type": "text/event-stream; charset=utf-8",
+				"Cache-Control": "no-cache, no-transform",
+				"Connection": "keep-alive",
+				"Transfer-Encoding": "chunked",
+			},
+		});
+	} catch (e) {
+		return new Response("data: {\"error\":\"stream_failed\"}\n\n", {
+			status: 500,
+			headers: { "Content-Type": "text/event-stream; charset=utf-8" },
+		});
+	}
 } 
