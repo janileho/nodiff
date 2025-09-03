@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, type FirebaseApp } from "firebase/app";
-import { getAuth, GoogleAuthProvider, type Auth } from "firebase/auth";
+import { getAuth, GoogleAuthProvider, type Auth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 
 let firebaseApp: FirebaseApp;
 let firebaseAuth: Auth;
@@ -26,4 +26,4 @@ if (!getApps().length) {
 firebaseAuth = getAuth(firebaseApp);
 googleProvider = new GoogleAuthProvider();
 
-export { firebaseApp, firebaseAuth, googleProvider }; 
+export { firebaseApp, firebaseAuth, googleProvider, signInWithEmailAndPassword, createUserWithEmailAndPassword }; 

@@ -1,13 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, firebaseAuth, googleProvider } from "@/lib/firebase/client";
 import { signInWithPopup } from "firebase/auth";
-import { firebaseAuth, googleProvider } from "@/lib/firebase/client";
 import Link from "next/link";
 
 export default function LoginPage() {
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [email, setEmail] = useState("");
+	const [password, setPassword] = useState("");
 
 	async function handleGoogleLogin() {
 		setError(null);
@@ -28,11 +30,92 @@ export default function LoginPage() {
 		}
 	}
 
+	async function handleEmailLogin(e: React.FormEvent) {
+		e.preventDefault();
+		setError(null);
+		setLoading(true);
+		try {
+			const result = await signInWithEmailAndPassword(firebaseAuth, email, password);
+			const idToken = await result.user.getIdToken();
+			await fetch("/api/auth/session", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ idToken }),
+			});
+			window.location.assign("/app");
+		} catch (e: any) {
+			setError(e?.message ?? "Login failed");
+		} finally {
+			setLoading(false);
+		}
+	}
+
+	async function handleEmailSignup(e: React.FormEvent) {
+		e.preventDefault();
+		setError(null);
+		setLoading(true);
+		try {
+			const result = await createUserWithEmailAndPassword(firebaseAuth, email, password);
+			const idToken = await result.user.getIdToken();
+			await fetch("/api/auth/session", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ idToken }),
+			});
+			window.location.assign("/app");
+		} catch (e: any) {
+			setError(e?.message ?? "Signup failed");
+		} finally {
+			setLoading(false);
+		}
+	}
+
 	return (
 		<div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-indigo-100 grid place-items-center p-8">
 			<div className="w-full max-w-md bg-white/30 backdrop-blur-md border border-white/40 rounded-2xl shadow-xl p-8">
 				<div className="text-center mb-6">
 					<h1 className="text-2xl font-bold text-gray-900">Kirjaudu sisään</h1>
+				</div>
+
+				<form onSubmit={handleEmailLogin} className="space-y-3 mb-4">
+					<input
+						type="email"
+						placeholder="Sähköposti"
+						value={email}
+						onChange={(e) => setEmail(e.target.value)}
+						className="w-full bg-white/70 border border-white/60 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+						required
+					/>
+					<input
+						type="password"
+						placeholder="Salasana"
+						value={password}
+						onChange={(e) => setPassword(e.target.value)}
+						className="w-full bg-white/70 border border-white/60 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+						required
+					/>
+					<div className="flex gap-2">
+						<button
+							type="submit"
+							disabled={loading}
+							className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-4 py-3 text-sm font-medium transition disabled:opacity-50"
+						>
+							Kirjaudu
+						</button>
+						<button
+							type="button"
+							onClick={handleEmailSignup}
+							disabled={loading}
+							className="flex-1 bg-gray-900 hover:bg-black text-white rounded-xl px-4 py-3 text-sm font-medium transition disabled:opacity-50"
+						>
+							Luo tili
+						</button>
+					</div>
+				</form>
+
+				<div className="relative my-4">
+					<div className="absolute inset-0 flex items-center"><span className="w-full border-t border-white/60" /></div>
+					<div className="relative flex justify-center text-xs"><span className="bg-white/30 px-2 text-gray-600">tai</span></div>
 				</div>
 
 				<button

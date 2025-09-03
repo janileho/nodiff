@@ -46,7 +46,7 @@ export default function SolveWorkspace({ taskId }: { taskId: string }) {
 	return (
 		<motion.div className="flex flex-col h-full w-full" initial={{ opacity: 0, y: 12, scale: 0.985 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}>
 			<div className="flex-shrink-0 relative">
-				<button onClick={() => router.push('/app')} aria-label="Takaisin" className="absolute left-2 top-2 inline-flex items-center justify-center rounded-full border border-white/40 bg-white/60 backdrop-blur-sm text-gray-800 hover:bg-white/80 transition-colors shadow-sm h-8 w-8">
+				<button onClick={() => router.push('/app')} aria-label="Takaisin" className="absolute left-2 top-2 z-[60] inline-flex items-center justify-center rounded-full border border-white/40 bg-white/60 backdrop-blur-sm text-gray-800 hover:bg-white/80 transition-colors shadow-sm h-8 w-8">
 					<svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor">
 						<path d="M15 19l-7-7 7-7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
 					</svg>

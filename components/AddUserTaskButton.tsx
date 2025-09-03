@@ -11,7 +11,6 @@ type Props = {
 export default function AddUserTaskButton({ courseId, subjectId, onCreated }: Props) {
   const [open, setOpen] = useState(false);
   const [question, setQuestion] = useState("");
-  const [difficulty, setDifficulty] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,7 +28,6 @@ export default function AddUserTaskButton({ courseId, subjectId, onCreated }: Pr
           question,
           course_id: courseId,
           subject_id: subjectId,
-          difficulty: difficulty || undefined,
         }),
       });
       if (!res.ok) throw new Error("Luonti epäonnistui");
@@ -37,7 +35,6 @@ export default function AddUserTaskButton({ courseId, subjectId, onCreated }: Pr
       const taskId: string = json.task?.task_id;
       setOpen(false);
       setQuestion("");
-      setDifficulty("");
       onCreated?.(taskId);
     } catch (e: any) {
       setError(e?.message || "Virhe luotaessa tehtävää");
@@ -69,16 +66,6 @@ export default function AddUserTaskButton({ courseId, subjectId, onCreated }: Pr
             rows={3}
           />
           <div className="mt-2 flex items-center gap-2">
-            <select
-              value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value)}
-              className="flex-1 rounded-md border border-white/60 bg-white/70 px-2 py-1 text-xs"
-            >
-              <option value="">Vaikeustaso (valinnainen)</option>
-              <option value="helppo">helppo</option>
-              <option value="keskitaso">keskitaso</option>
-              <option value="haastava">haastava</option>
-            </select>
             <button
               onClick={submit}
               disabled={!canSubmit}

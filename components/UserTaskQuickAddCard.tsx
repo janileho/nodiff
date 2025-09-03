@@ -12,7 +12,6 @@ type Props = {
 
 export default function UserTaskQuickAddCard({ courseId, subjectId, onCreated }: Props) {
   const [question, setQuestion] = useState("");
-  const [difficulty, setDifficulty] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<"idle"|"generating"|"show_steps"|"finalizing"|"show_answer"|"ready">("idle");
@@ -103,7 +102,6 @@ export default function UserTaskQuickAddCard({ courseId, subjectId, onCreated }:
           question,
           solution_steps: genSteps,
           final_answer: genAnswer,
-          difficulty: (difficulty || "keskitaso"),
           course_id: courseId,
           subject_id: subjectId,
         }),
@@ -115,7 +113,6 @@ export default function UserTaskQuickAddCard({ courseId, subjectId, onCreated }:
       onCreated?.(taskId);
       // Reset inputs for next time
       setQuestion("");
-      setDifficulty("");
       setGenSteps([]);
       setGenAnswer("");
       setPhase("idle");
@@ -201,7 +198,7 @@ export default function UserTaskQuickAddCard({ courseId, subjectId, onCreated }:
   };
 
   return (
-    <div className="bg-white/30 backdrop-blur-sm border border-white/40 rounded-xl shadow-lg p-3 md:p-4 w-64">
+    <div className="bg-white/30 backdrop-blur-sm border border-white/40 rounded-xl shadow-lg p-3 md:p-4 w-full">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xs md:text-sm font-medium text-gray-900">Lisää oma tehtävä</h3>
       </div>
@@ -233,17 +230,6 @@ export default function UserTaskQuickAddCard({ courseId, subjectId, onCreated }:
             {extracting ? "Luetaan…" : "Lue kuvasta"}
           </span>
         </label>
-        <select
-          className="flex-1 rounded-md border border-white/60 bg-white/70 px-2 py-1 text-xs"
-          value={difficulty}
-          onChange={(e) => setDifficulty(e.target.value)}
-          disabled={loading}
-        >
-          <option value="">Vaikeustaso (valinnainen)</option>
-          <option value="helppo">helppo</option>
-          <option value="keskitaso">keskitaso</option>
-          <option value="haastava">haastava</option>
-        </select>
         <button
           onClick={generate}
           disabled={!canGenerate}
@@ -259,6 +245,7 @@ export default function UserTaskQuickAddCard({ courseId, subjectId, onCreated }:
           )}
         </button>
       </div>
+      <div className="mt-1 text-[11px] text-gray-500">Vinkki: voit liittää kuvan suoraan Ctrl+V</div>
       {error && <div className="mt-2 text-[11px] text-red-600">{error}</div>}
 
       {/* Generation progress & result */}
@@ -304,7 +291,7 @@ export default function UserTaskQuickAddCard({ courseId, subjectId, onCreated }:
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
                     </svg>
                   ) : (
-                    <span>Tallenna ja avaa</span>
+                    <span>Tallenna</span>
                   )}
                 </button>
               </div>

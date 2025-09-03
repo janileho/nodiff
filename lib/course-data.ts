@@ -9,6 +9,7 @@ export interface Subject {
   name: string;
   description: string;
   learning_objectives: LearningObjective[];
+  formulas_with_explanations?: { formula: string; explanation: string }[];
 }
 
 export interface Course {

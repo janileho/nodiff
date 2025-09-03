@@ -19,10 +19,10 @@ export default function MathEditorHeader({ onAddFormula, onInsertIntoActive, onS
 	};
 
 	return (
-		<div className="px-3 py-1.5 mx-2 mt-2 mb-2">
-			{/* Row 1: Button + ALL Symbols */}
+		<div className="relative px-3 py-1.5 mx-2 mt-2 mb-2">
+			{/* Row 1: Button + core Symbols */}
 			<div className="flex items-center justify-center mb-1">
-				{/* Left side - Button in its own box, positioned top-right within its div */}
+				{/* Left side - Button */}
 				<div className="mr-4 flex justify-end">
 					<button
 						onMouseDown={(e) => e.preventDefault()}
@@ -36,101 +36,98 @@ export default function MathEditorHeader({ onAddFormula, onInsertIntoActive, onS
 					</button>
 				</div>
 				
-				{/* Center - ALL Symbols in one box, perfectly centered */}
-				<div className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg p-2">
-					{/* Row 1: Greek Letters + Math Symbols */}
-					<div className="flex items-center gap-4 mb-2">
-						{/* Greek Letters */}
-						<div className="flex items-center gap-1">
-							<span className="text-xs text-gray-600 mr-1 w-12">Kreikka:</span>
-							{['\\pi', '\\theta', '\\alpha', '\\beta', '\\gamma', '\\delta', '\\epsilon', '\\phi', '\\lambda', '\\mu', '\\sigma', '\\omega'].map(symbol => (
-								<button
-									key={symbol}
-									onMouseDown={(e) => e.preventDefault()}
-									className="px-1 py-0.5 text-xs bg-white/80 backdrop-blur-sm border border-white/60 rounded hover:bg-white/90 transition-colors flex items-center justify-center min-w-5 text-gray-900"
-									title={symbol}
-									onClick={() => onSymbolClick(symbol)}
-								>
-									<TeX math={symbol} />
-								</button>
-							))}
-						</div>
-						
-						{/* Math Symbols */}
-						<div className="flex items-center gap-1">
-							<span className="text-xs text-gray-600 mr-1 w-12">Symbolit:</span>
-							{[
-								{ label: '\\infty', insert: '\\infty' },
-								{ label: '\\pm', insert: '\\pm' },
-								{ label: '\\times', insert: '\\times' },
-								{ label: '\\div', insert: '\\div' },
-								{ label: '\\sqrt{x}', insert: '\\sqrt{}' },
-								{ label: '\\sum', insert: '\\sum' },
-								{ label: '\\int', insert: '\\int' },
-								{ label: '\\frac{a}{b}', insert: '\\frac{}{}' },
-								{ label: 'x^{2}', insert: '^{}' },
-								{ label: 'x_{1}', insert: '_{}' },
-								{ label: '90^{\\circ}', insert: '^{\\circ}' }
-							].map(({ label, insert }) => (
-								<button
-									key={label}
-									onMouseDown={(e) => e.preventDefault()}
-									className="px-1 py-0.5 text-xs bg-white/80 backdrop-blur-sm border border-white/60 rounded hover:bg-white/90 transition-colors flex items-center justify-center min-w-5 text-gray-900"
-									title={insert}
-									onClick={() => onSymbolClick(insert)}
-								>
-									<TeX math={label} />
-								</button>
-							))}
-						</div>
-					</div>
-					
-					{/* Expandable rows */}
-					{showMoreSymbols && (
-						<>
-							{/* Row 2: Functions + Sets */}
-							<div className="flex items-center gap-4 mb-2">
-								{/* Functions */}
-								<div className="flex items-center gap-1">
-									<span className="text-xs text-gray-600 mr-1 w-12">Funktiot:</span>
-									{[
-										{ label: '\\sin x', insert: '\\sin()' },
-										{ label: '\\cos x', insert: '\\cos()' },
-										{ label: '\\tan x', insert: '\\tan()' },
-										{ label: '\\log x', insert: '\\log()' },
-										{ label: '\\ln x', insert: '\\ln()' },
-										{ label: '\\exp x', insert: '\\exp()' }
-									].map(({ label, insert }) => (
-										<button
-											key={label}
-											onMouseDown={(e) => e.preventDefault()}
-											className="px-1 py-0.5 text-xs bg-white/80 backdrop-blur-sm border border-white/60 rounded hover:bg-white/90 transition-colors flex items-center justify-center min-w-5 text-gray-900"
-											title={insert}
-											onClick={() => onSymbolClick(insert)}
-										>
-											<TeX math={label} />
+				{/* Center - Core Symbols + dropdown extension */}
+				<div className="relative">
+					<div className={`bg-white/20 backdrop-blur-sm border border-white/30 ${showMoreSymbols ? 'rounded-t-lg' : 'rounded-lg'} p-2`}>
+						<div className="flex items-center gap-3">
+							{/* Greek Letters */}
+							<div className="flex items-center gap-1">
+								<span className="text-xs text-gray-600 mr-1 w-12">Kreikka:</span>
+								{['\\pi', '\\theta', '\\alpha', '\\beta', '\\gamma', '\\delta', '\\epsilon', '\\phi', '\\lambda', '\\mu', '\\sigma', '\\omega'].map(symbol => (
+									<button
+										key={symbol}
+										onMouseDown={(e) => e.preventDefault()}
+										className="px-1 py-0.5 text-xs bg-white/80 backdrop-blur-sm border border-white/60 rounded hover:bg-white/90 transition-colors flex items-center justify-center min-w-5 text-gray-900"
+										title={symbol}
+										onClick={() => onSymbolClick(symbol)}
+									>
+										<TeX math={symbol} />
 										</button>
 									))}
-								</div>
-								
-								{/* Sets */}
-								<div className="flex items-center gap-1">
-									<span className="text-xs text-gray-600 mr-1 w-8">Joukot:</span>
-									{['\\mathbb{R}', '\\mathbb{N}', '\\mathbb{Z}', '\\mathbb{Q}', '\\mathbb{C}'].map(symbol => (
-										<button
-											key={symbol}
-											onMouseDown={(e) => e.preventDefault()}
-											className="px-1 py-0.5 text-xs bg-white/80 backdrop-blur-sm border border-white/60 rounded hover:bg-white/90 transition-colors flex items-center justify-center min-w-5 text-gray-900"
-											title={symbol}
-											onClick={() => onSymbolClick(symbol)}
-										>
-											<TeX math={symbol} />
+							</div>
+							
+							{/* Math Symbols */}
+							<div className="flex items-center gap-1">
+								<span className="text-xs text-gray-600 mr-1 w-12">Symbolit:</span>
+								{[
+									{ label: '\\infty', insert: '\\infty' },
+									{ label: '\\pm', insert: '\\pm' },
+									{ label: '\\times', insert: '\\times' },
+									{ label: '\\div', insert: '\\div' },
+									{ label: '\\sqrt{x}', insert: '\\sqrt{}' },
+									{ label: '\\sum', insert: '\\sum' },
+									{ label: '\\int', insert: '\\int' },
+									{ label: '\\frac{a}{b}', insert: '\\frac{}{}' },
+									{ label: 'x^{2}', insert: '^{}' },
+									{ label: 'x_{1}', insert: '_{}' },
+									{ label: '90^{\\circ}', insert: '^{\\circ}' }
+								].map(({ label, insert }) => (
+									<button
+										key={label}
+										onMouseDown={(e) => e.preventDefault()}
+										className="px-1 py-0.5 text-xs bg-white/80 backdrop-blur-sm border border-white/60 rounded hover:bg-white/90 transition-colors flex items-center justify-center min-w-5 text-gray-900"
+										title={insert}
+										onClick={() => onSymbolClick(insert)}
+									>
+										<TeX math={label} />
 										</button>
-									))}
+								))}
+							</div>
+						</div>
+						{showMoreSymbols && (
+							<div className="absolute left-0 right-0 top-full mt-1 z-50 bg-white/20 backdrop-blur-sm border border-white/30 border-t-0 rounded-b-lg p-2">
+								<div className="flex items-start gap-6 mb-1">
+									{/* Functions */}
+									<div className="flex items-center gap-1">
+										<span className="text-xs text-gray-600 mr-1 w-12">Funktiot:</span>
+										{[
+											{ label: '\\sin x', insert: '\\sin()' },
+											{ label: '\\cos x', insert: '\\cos()' },
+											{ label: '\\tan x', insert: '\\tan()' },
+											{ label: '\\log x', insert: '\\log()' },
+											{ label: '\\ln x', insert: '\\ln()' },
+											{ label: '\\exp x', insert: '\\exp()' }
+										].map(({ label, insert }) => (
+											<button
+												key={label}
+												onMouseDown={(e) => e.preventDefault()}
+												className="px-1 py-0.5 text-xs bg-white/80 backdrop-blur-sm border border-white/60 rounded hover:bg-white/90 transition-colors flex items-center justify-center min-w-5 text-gray-900"
+												title={insert}
+												onClick={() => onSymbolClick(insert)}
+											>
+												<TeX math={label} />
+											</button>
+										))}
+									</div>
+									{/* Sets */}
+									<div className="flex items-center gap-1">
+										<span className="text-xs text-gray-600 mr-1 w-8">Joukot:</span>
+										{['\\mathbb{R}', '\\mathbb{N}', '\\mathbb{Z}', '\\mathbb{Q}', '\\mathbb{C}'].map(symbol => (
+											<button
+												key={symbol}
+												onMouseDown={(e) => e.preventDefault()}
+												className="px-1 py-0.5 text-xs bg-white/80 backdrop-blur-sm border border-white/60 rounded hover:bg-white/90 transition-colors flex items-center justify-center min-w-5 text-gray-900"
+												title={symbol}
+												onClick={() => onSymbolClick(symbol)}
+											>
+												<TeX math={symbol} />
+											</button>
+										))}
+									</div>
 								</div>
 							</div>
-						</>
-					)}
+						)}
+					</div>
 				</div>
 				
 				{/* Right side - Expand/Collapse button */}

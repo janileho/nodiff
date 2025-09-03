@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Course, Subject, LearningObjective } from "@/lib/course-data";
+import InlineMath from "@matejmazur/react-katex";
 
 interface CourseFormProps {
   initialCourse?: Course;
@@ -446,6 +447,89 @@ export default function CourseForm({ initialCourse, mode = "create" }: CourseFor
                   ))}
                 </div>
               </div>
+
+              {/* Subject formulas & theory */}
+              <div className="border-t border-gray-200 pt-4">
+                <h4 className="text-sm font-medium text-gray-900 mb-2">Formulas & Theory (per subject)</h4>
+                <div className="space-y-3">
+                  {(subject.formulas_with_explanations || []).map((fxe, fxIndex) => (
+                    <div key={fxIndex} className="border border-gray-200 rounded p-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">LaTeX Formula</label>
+                          <input
+                            type="text"
+                            value={fxe.formula}
+                            onChange={(e) => {
+                              const updatedSubjects = [...(formData.subjects || [])];
+                              const s = updatedSubjects[subjectIndex];
+                              const list = [...(s.formulas_with_explanations || [])];
+                              list[fxIndex] = { ...list[fxIndex], formula: e.target.value };
+                              updatedSubjects[subjectIndex] = { ...s, formulas_with_explanations: list } as Subject;
+                              handleFieldChange("subjects", updatedSubjects);
+                            }}
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            placeholder="e.g., \\sin^2(x)+\\cos^2(x)=1"
+                          />
+                          <div className="mt-1 text-xs text-gray-600">
+                            Preview: <InlineMath math={fxe.formula || ''} />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">Explanation</label>
+                          <input
+                            type="text"
+                            value={fxe.explanation}
+                            onChange={(e) => {
+                              const updatedSubjects = [...(formData.subjects || [])];
+                              const s = updatedSubjects[subjectIndex];
+                              const list = [...(s.formulas_with_explanations || [])];
+                              list[fxIndex] = { ...list[fxIndex], explanation: e.target.value };
+                              updatedSubjects[subjectIndex] = { ...s, formulas_with_explanations: list } as Subject;
+                              handleFieldChange("subjects", updatedSubjects);
+                            }}
+                            className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            placeholder="Short explanation for the formula"
+                          />
+                        </div>
+                      </div>
+                      <div className="mt-2 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updatedSubjects = [...(formData.subjects || [])];
+                            const s = updatedSubjects[subjectIndex];
+                            const list = [...(s.formulas_with_explanations || [])];
+                            list.splice(fxIndex, 1);
+                            updatedSubjects[subjectIndex] = { ...s, formulas_with_explanations: list } as Subject;
+                            handleFieldChange("subjects", updatedSubjects);
+                          }}
+                          className="text-red-600 hover:text-red-800 text-xs"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const updatedSubjects = [...(formData.subjects || [])];
+                      const s = updatedSubjects[subjectIndex];
+                      const list = [...(s.formulas_with_explanations || [])];
+                      list.push({ formula: "", explanation: "" });
+                      updatedSubjects[subjectIndex] = { ...s, formulas_with_explanations: list } as Subject;
+                      handleFieldChange("subjects", updatedSubjects);
+                    }}
+                    className="inline-flex items-center px-2 py-1 border border-transparent text-xs leading-4 font-medium rounded text-blue-700 bg-blue-100 hover:bg-blue-200"
+                  >
+                    Add Formula
+                  </button>
+                </div>
+              </div>
+              {/* End formulas */}
             </div>
           ))}
           
